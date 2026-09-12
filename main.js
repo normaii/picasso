@@ -74,28 +74,22 @@ function openLoginWindow() {
 
   loginWindow.loadURL(systemUrl);
 
-  // Monitora navegação para detectar login bem-sucedido
+  // Monitora navegação apenas para debug no console
   loginWindow.webContents.on('did-navigate', async (event, url) => {
-    const lowerUrl = url.toLowerCase();
-    const isRootOrBase = lowerUrl === systemUrl.toLowerCase() || 
-                         lowerUrl === systemUrl.toLowerCase() + '/' ||
-                         lowerUrl.endsWith('/conexaoeducacao') || 
-                         lowerUrl.endsWith('/conexaoeducacao/');
-    const isLogin = lowerUrl.includes('login');
+    console.log('[LoginWindow] Navigated to:', url);
+  });
 
-    // Após login, a URL muda para a página principal do sistema (não é raiz e não é login)
-    if (lowerUrl.includes('/conexaoeducacao/') && !isLogin && !isRootOrBase) {
-      // Captura os cookies da sessão
+  // Quando o usuário fechar a janela (após fazer login manualmente), capturamos a sessão
+  loginWindow.on('close', async () => {
+    try {
       const cookies = await loginWindow.webContents.session.cookies.get({
         domain: '.educacao.rj.gov.br',
       });
-
-      // Se não pegou nenhum cookie, talvez a navegação ainda não tenha setado.
-      // Mas assumiremos que navegou pra dentro do sistema, então logou.
-      mainWindow.webContents.send('login-success', cookies);
-
-      // Fecha a janela de login
-      loginWindow.close();
+      if (mainWindow) {
+        mainWindow.webContents.send('login-success', cookies);
+      }
+    } catch (err) {
+      console.error('[Picasso] Erro ao capturar cookies no fechamento:', err);
     }
   });
 

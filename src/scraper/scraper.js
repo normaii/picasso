@@ -69,16 +69,14 @@ async function iniciarScraping(cookies) {
     const alunosExtraidos = await win.webContents.executeJavaScript(`
       (() => {
         const alunos = [];
-        // SELETOR HIPOTÉTICO, PRECISA SER AJUSTADO PARA O SISTEMA REAL!
-        // Como não temos acesso à rede, vamos mockar a extração se não achar nada
-        const trs = document.querySelectorAll('table tr.aluno-row');
+        const trs = document.querySelectorAll('table tr.aluno-row'); // Seletor fictício
         
         if (trs.length === 0) {
-          // MOCK para testes locais já que não estamos logados num sistema real
-          return [
-            { nome: "Aluno Exemplo 1", matricula: "2024001", turma_nome: "1001", turma_id: "T1001" },
-            { nome: "Aluno Exemplo 2", matricula: "2024002", turma_nome: "1001", turma_id: "T1001" }
-          ];
+          // Vamos capturar um pedaço do HTML real para análise do desenvolvedor
+          const bodyHTML = document.body.innerHTML;
+          // Pegamos os primeiros 5000 caracteres para não estourar o console
+          console.log("[Scraper Injetado] HTML da página de relatório:", bodyHTML.substring(0, 5000));
+          return [];
         }
 
         trs.forEach(tr => {
@@ -92,6 +90,10 @@ async function iniciarScraping(cookies) {
         return alunos;
       })();
     `);
+    
+    if (alunosExtraidos.length === 0) {
+      console.log("[Scraper] A tabela de alunos não foi encontrada. Verifique o HTML injetado acima.");
+    }
 
     console.log(`[Scraper] Encontrados ${alunosExtraidos.length} alunos.`);
     
