@@ -1,0 +1,135 @@
+// ============================================================
+// Picasso — Entry Point do Electron
+// ============================================================
+// Gerencia a janela principal da aplicação e a janela de login
+// para o Conexão Educação (login manual com CAPTCHA).
+// ============================================================
+
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+
+// Carrega variáveis de ambiente
+require('dotenv').config();
+
+// Importa e inicia o servidor Express embutido
+const { startServer } = require('./server');
+
+/** @type {BrowserWindow | null} */
+let mainWindow = null;
+
+/** @type {BrowserWindow | null} */
+let loginWindow = null;
+
+const PORT = process.env.PORT || 3000;
+
+/**
+ * Cria a janela principal da aplicação.
+ */
+function createMainWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'Picasso — Carteirinhas Escolares',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'src', 'preload.js'),
+    },
+  });
+
+  // Carrega a interface servida pelo Express
+  mainWindow.loadURL(`http://localhost:${PORT}`);
+
+  // Abre DevTools automaticamente em modo de desenvolvimento
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+/**
+ * Abre a janela de login no Conexão Educação.
+ * O diretor faz login manualmente (com CAPTCHA), e os cookies
+ * da sessão são capturados após o login bem-sucedido.
+ */
+function openLoginWindow() {
+  const systemUrl = process.env.SYSTEM_URL || 'https://conexao.educacao.rj.gov.br';
+
+  loginWindow = new BrowserWindow({
+    width: 1024,
+    height: 700,
+    title: 'Login — Conexão Educação',
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  loginWindow.loadURL(systemUrl);
+
+  // Monitora navegação para detectar login bem-sucedido
+  loginWindow.webContents.on('did-navigate', async (event, url) => {
+    // Após login, a URL muda para a página principal do sistema
+    if (url.includes('/ConexaoEducacao/') && !url.includes('Login')) {
+      // Captura os cookies da sessão
+      const cookies = await loginWindow.webContents.session.cookies.get({
+        domain: '.educacao.rj.gov.br',
+      });
+
+      // Envia os cookies para o processo principal
+      mainWindow.webContents.send('login-success', cookies);
+
+      // Fecha a janela de login
+      loginWindow.close();
+    }
+  });
+
+  loginWindow.on('closed', () => {
+    loginWindow = null;
+  });
+}
+
+// ============================================================
+// Ciclo de Vida do Electron
+// ============================================================
+
+app.whenReady().then(async () => {
+  // Inicia o servidor Express antes de criar a janela
+  await startServer(PORT);
+  console.log(`[Picasso] Servidor rodando em http://localhost:${PORT}`);
+
+  createMainWindow();
+});
+
+// Fecha a aplicação quando todas as janelas forem fechadas (Windows/Linux)
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// macOS: recria janela ao clicar no ícone do dock
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createMainWindow();
+  }
+});
+
+// ============================================================
+// IPC — Comunicação entre renderer e main process
+// ============================================================
+
+ipcMain.handle('open-login', () => {
+  openLoginWindow();
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});

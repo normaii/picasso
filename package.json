@@ -1,0 +1,55 @@
+{
+  "name": "picasso",
+  "version": "1.0.0",
+  "description": "Gerador de carteirinhas escolares - Scraping do Conexão Educação RJ",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron .",
+    "server": "node server.js",
+    "build": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "postinstall": "playwright install chromium"
+  },
+  "build": {
+    "appId": "com.picasso.app",
+    "productName": "Picasso",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "src/**/*",
+      "public/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["pt_BR"]
+    }
+  },
+  "keywords": ["carteirinha", "escola", "scraping", "electron", "educacao"],
+  "author": "normaii",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "playwright": "^1.48.0",
+    "puppeteer": "^23.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
