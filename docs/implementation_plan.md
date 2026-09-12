@@ -14,32 +14,33 @@ Solução para automatizar a geração de carteirinhas estudantis prontas para i
 
 ---
 
-## Arquitetura Proposta
+## Arquitetura Proposta (Atualizada para Produção)
 
 ```mermaid
 graph TD
     A["🖥️ Interface Electron<br/>Busca & Seleção de Alunos"] -->|"Requisição"| B["⚙️ Backend Local<br/>Node.js + Express"]
     A -->|"Login manual"| H["🔐 Janela de Login<br/>Navegador Embutido"]
     H -->|"Cookies de sessão"| E
-    B -->|"Consulta dados"| C["🗄️ SQLite<br/>Pasta Google Drive"]
-    B -->|"Gerar PDF"| D["📄 Gerador de PDF<br/>Puppeteer"]
-    E["🕷️ Módulo de Scraping<br/>Playwright"] -->|"Armazena dados"| C
+    B -->|"Consulta dados"| C["🗄️ JSON DB local<br/>(Sem dependências nativas)"]
+    B -->|"Gerar PDF"| D["📄 Gerador de PDF<br/>Electron printToPDF()"]
+    E["🕷️ Módulo de Scraping<br/>Electron BrowserWindow"] -->|"Armazena dados"| C
     E -->|"Navega com sessão"| F["🌐 Conexão Educação RJ"]
     E -->|"Baixa fotos"| G["📸 Fotos dos Alunos<br/>Pasta Google Drive"]
     D -->|"Saída"| I["🖨️ PDF A4 Pronto p/ Impressão"]
 ```
 
-### Stack Tecnológica
+### Stack Tecnológica & Estratégia de Setup
 
 | Camada | Tecnologia | Justificativa |
 |---|---|---|
+| **Distribuição / Setup** | **Instalador `.exe` (Electron Builder)** | **Resolução do problema de setup**: O diretor não precisa de Node.js, `npm` ou terminais. Um único arquivo `.exe` instala o programa como um software comum do Windows. |
 | **Aplicação Desktop** | Electron | Janela de login embutida para CAPTCHA, app local offline |
 | **Front-End** | HTML + CSS + JS (Vanilla) | Design premium, sem build step |
 | **Backend** | Node.js + Express | API local, orquestra scraping e geração de PDF |
-| **Scraping** | Playwright | Automação robusta, reutiliza cookies de sessão |
-| **Banco de Dados** | SQLite (`better-sqlite3`) | Arquivo único, pode ficar na pasta do Google Drive |
-| **Geração de PDF** | Puppeteer | Renderiza HTML/CSS → PDF com fidelidade |
-| **Armazenamento** | Pasta local (Google Drive sync) | Fotos e DB sincronizados na nuvem automaticamente |
+| **Scraping** | Electron `BrowserWindow` (Invisível) | **Mudança**: Removemos o *Playwright*. O próprio Electron já tem o Chromium embutido, economizando ~150MB e evitando problemas de download de navegadores em redes bloqueadas de escolas. |
+| **Banco de Dados** | JSON Local (Custom) | **Mudança**: Removemos o *SQLite*. O SQLite (seja `better-sqlite3` ou `node:sqlite`) causa problemas de compilação ou incompatibilidade de versão de Node no Electron. Como escolas têm no máximo alguns milhares de alunos, um arquivo JSON é instantâneo e zero-dependência. |
+| **Geração de PDF** | Electron `printToPDF()` | **Mudança**: Removemos o *Puppeteer*. O Electron gera PDFs de forma nativa e idêntica ao Puppeteer. |
+| **Armazenamento** | Pasta local (Google Drive sync) | Fotos e JSON sincronizados na nuvem automaticamente |
 
 ---
 

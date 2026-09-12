@@ -9,8 +9,7 @@
     "server": "node server.js",
     "build": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "postinstall": "playwright install chromium"
+    "build:linux": "electron-builder --linux"
   },
   "build": {
     "appId": "com.picasso.app",
@@ -33,22 +32,28 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerLanguages": ["pt_BR"]
+      "installerLanguages": [
+        "pt_BR"
+      ]
     }
   },
-  "keywords": ["carteirinha", "escola", "scraping", "electron", "educacao"],
+  "keywords": [
+    "carteirinha",
+    "escola",
+    "scraping",
+    "electron",
+    "educacao"
+  ],
   "author": "normaii",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
-    "express": "^4.21.0",
-    "playwright": "^1.48.0",
-    "puppeteer": "^23.0.0"
+    "express": "^4.21.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "electron": "^33.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0"
   }
 }

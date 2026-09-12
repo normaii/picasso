@@ -119,6 +119,8 @@ router.post('/gerar', async (req, res) => {
 // Scraping
 // ============================================================
 
+const { iniciarScraping } = require('../scraper/scraper');
+
 /**
  * POST /api/scraping/iniciar
  * Inicia uma operação de scraping.
@@ -132,11 +134,11 @@ router.post('/scraping/iniciar', async (req, res) => {
       return res.status(400).json({ erro: 'Cookies de sessão não fornecidos.' });
     }
 
-    // TODO: Integrar com módulo de scraping (Fase 2)
-    // const resultado = await iniciarScraping(cookies);
+    // Inicia de forma assíncrona para não bloquear a requisição
+    iniciarScraping(cookies).catch(err => console.error(err));
 
     res.json({
-      mensagem: 'Módulo de scraping será implementado na Fase 2.',
+      mensagem: 'Scraping iniciado em background. Consulte o status para acompanhar.',
     });
   } catch (error) {
     console.error('[API] Erro ao iniciar scraping:', error.message);
