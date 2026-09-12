@@ -23,6 +23,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-011](#adr-011) | Setup e Distribuição em Produção | ✅ Aceito | 2026-09-12 |
 | [ADR-012](#adr-012) | Agnosticidade de Escola (Multi-escola) | ✅ Aceito | 2026-09-12 |
 | [ADR-013](#adr-013) | Política de Expurgo de Dados | ✅ Aceito | 2026-09-12 |
+| [ADR-014](#adr-014) | Orientação e Distribuição do Layout (Futuro) | 🔮 Proposto (V2) | 2026-09-12 |
 
 ---
 
@@ -275,6 +276,23 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-014
+### Orientação e Distribuição do Layout (Futuro)
+
+**Status**: 🔮 Proposto (Planejado para V2) — 2026-09-12
+
+**Contexto**: Na primeira versão (V1), os crachás foram orientados na folha A4 com o formato "Retrato", porém a leitura de texto neles está alinhada à horizontal da folha, resultando numa "Frente e Verso" adjacentes horizontalmente. Diretorias de escola podem preferir um formato diferente, com layout de leitura orientado em paisagem rotacionada, permitindo melhor distribuição de espaço e encaixe nos porta-crachás verticais tradicionais do RJ.
+
+**Decisão**: Para a V1, será mantido o layout atual. No entanto, fica estabelecido como forte indicativo para a V2 uma refatoração no `cardTemplate.html` e `a4Layout.html` para **rotacionar e redistribuir os dados** na orientação paisagem.
+
+**Justificativa**: A prioridade da V1 é validar o motor de geração de PDFs, a coleta agnóstica de dados e a emissão funcional. Na V2, teremos espaço para refinar a experiência do usuário final com aprovação das diretorias, baseando-se em testes físicos de impressão.
+
+**Consequências**:
+- O CSS e HTML das carteirinhas passarão por um *redesign* estrutural completo na próxima grande atualização.
+- Os templates atuais devem se manter modulares para não impactar a lógica do NodeJS (que apenas substitui strings) quando esse redesign acontecer.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -282,3 +300,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-08-13 | Criação do documento com ADR-001 a ADR-010 |
 | 2026-09-12 | Adicionado ADR-011. Revisão do ADR-004 (SQLite → JSON), ADR-006 (Playwright/Puppeteer → Electron native) e ADR-009. |
 | 2026-09-12 | Adicionado ADR-012 (Agnosticidade) e ADR-013 (Expurgo de Dados). |
+| 2026-09-12 | Adicionado ADR-014 (Alteração de Orientação do Layout para V2). |
