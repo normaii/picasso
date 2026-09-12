@@ -160,6 +160,25 @@ router.get('/scraping/status', (req, res) => {
   }
 });
 
+/**
+ * GET /api/turmas
+ * Retorna as turmas disponíveis baseando-se nos alunos existentes.
+ */
+router.get('/turmas', (req, res) => {
+  try {
+    const { buscarAlunos } = require('../db/database');
+    const alunos = buscarAlunos({ limite: 10000 });
+    const turmasSet = new Set();
+    alunos.forEach(a => {
+      if (a.turma_nome) turmasSet.add(a.turma_nome);
+    });
+    res.json({ turmas: Array.from(turmasSet).sort() });
+  } catch (error) {
+    console.error('[API] Erro ao buscar turmas:', error);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
 // ============================================================
 // Health Check
 // ============================================================

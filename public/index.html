@@ -1,17 +1,149 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Picasso — Carteirinhas Escolares</title>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Picasso - Gerador de Carteirinhas</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Fonte Inter (Google Fonts) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Ícones Phosphor -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
-  <div id="app">
-    <h1>🎨 Picasso</h1>
-    <p>Gerador de Carteirinhas Escolares</p>
-    <p><em>Interface será implementada na Fase 4.</em></p>
+  
+  <div class="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <i class="ph ph-identification-badge brand-icon"></i>
+        <h1 class="brand-title">Picasso</h1>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-target="view-config">
+          <i class="ph ph-gear"></i>
+          <span>Configurações</span>
+        </button>
+        <button class="nav-item" data-target="view-sync">
+          <i class="ph ph-arrows-clockwise"></i>
+          <span>Sincronizar Dados</span>
+        </button>
+        <button class="nav-item" data-target="view-emit">
+          <i class="ph ph-printer"></i>
+          <span>Emissão (PDF)</span>
+        </button>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <span class="version-label">Versão 1.0.0</span>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- View 1: Configurações -->
+      <section id="view-config" class="view-section active">
+        <div class="view-header">
+          <h2>Configurações da Escola</h2>
+          <p>Personalize os dados que aparecerão impressos nas carteirinhas.</p>
+        </div>
+        
+        <div class="card-glass">
+          <form id="form-config" class="config-form">
+            <div class="input-group">
+              <label for="escola-nome">Nome Oficial da Escola</label>
+              <input type="text" id="escola-nome" placeholder="Ex: C.E. Rio de Janeiro" required>
+            </div>
+            
+            <div class="input-group">
+              <label for="escola-logo">Logo da Escola (URL ou Base64)</label>
+              <input type="text" id="escola-logo" placeholder="Caminho da imagem ou link" required>
+              <small class="helper-text">Insira uma URL de imagem pública ou base64 para injetar nas carteirinhas.</small>
+            </div>
+            
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <i class="ph ph-floppy-disk"></i> Salvar Configurações
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+      
+      <!-- View 2: Sincronização / Scraping -->
+      <section id="view-sync" class="view-section">
+        <div class="view-header">
+          <h2>Sincronização de Dados</h2>
+          <p>Importe os alunos diretamente do sistema Conexão Educação.</p>
+        </div>
+        
+        <div class="card-glass text-center">
+          <i class="ph ph-cloud-arrow-down sync-icon"></i>
+          <h3 class="sync-title">Base de Alunos</h3>
+          
+          <!-- Estatísticas Atuais -->
+          <div class="stats-container">
+            <div class="stat-box">
+              <span class="stat-value" id="stat-total-alunos">0</span>
+              <span class="stat-label">Alunos Cadastrados</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="stat-total-turmas">0</span>
+              <span class="stat-label">Turmas</span>
+            </div>
+          </div>
+          
+          <p class="sync-desc">
+            Para atualizar, clique abaixo. Uma janela do Conexão Educação se abrirá para que você faça o <b>Login Manualmente</b>. Após logar, o sistema fará a extração em background.
+          </p>
+          
+          <button id="btn-iniciar-sync" class="btn btn-large btn-primary mt-4">
+            <i class="ph ph-play"></i> Iniciar Sincronização
+          </button>
+        </div>
+
+        <!-- Terminal de Log -->
+        <div class="terminal-container mt-4" id="log-container" style="display: none;">
+          <div class="terminal-header">
+            <span>Processo em andamento...</span>
+          </div>
+          <div class="terminal-body" id="log-output">
+            <div class="log-line">> Aguardando inicialização...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 3: Emissão -->
+      <section id="view-emit" class="view-section">
+        <div class="view-header">
+          <h2>Emissão de Carteirinhas</h2>
+          <p>Selecione a turma desejada para gerar o PDF pronto para impressão.</p>
+        </div>
+        
+        <div class="card-glass">
+          <div class="turmas-grid" id="grid-turmas">
+            <!-- Os cards de turma serão injetados via JS -->
+            <div style="grid-column: 1/-1; text-align: center; color: #7f8c8d; padding: 2rem;">
+              Carregando turmas...
+            </div>
+          </div>
+        </div>
+
+        <!-- Status de Geração -->
+        <div class="status-banner mt-4" id="pdf-status-banner" style="display: none;">
+          <div class="spinner"></div>
+          <span id="pdf-status-text">Gerando PDF para a turma...</span>
+        </div>
+        <!-- Status Sucesso/Erro -->
+        <div class="alert mt-4" id="pdf-alert-banner" style="display: none;"></div>
+      </section>
+
+    </main>
   </div>
-  <script src="/js/app.js"></script>
+
+  <script src="app.js"></script>
 </body>
 </html>
