@@ -21,6 +21,8 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-009](#adr-009) | Formato de saída (PDF) | 🔄 Modificado | 2026-09-12 |
 | [ADR-010](#adr-010) | Estrutura do projeto | ✅ Aceito | 2026-08-13 |
 | [ADR-011](#adr-011) | Setup e Distribuição em Produção | ✅ Aceito | 2026-09-12 |
+| [ADR-012](#adr-012) | Agnosticidade de Escola (Multi-escola) | ✅ Aceito | 2026-09-12 |
+| [ADR-013](#adr-013) | Política de Expurgo de Dados | ✅ Aceito | 2026-09-12 |
 
 ---
 
@@ -240,9 +242,43 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-012
+### Agnosticidade de Escola (Multi-escola)
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: O produto resolve uma dor comum a muitas escolas do Estado do Rio de Janeiro, portanto, não pode ter dados fixos (hardcoded) de uma única escola.
+
+**Decisão**: O sistema não fará restrições ao layout para uma escola específica. Os recursos de identidade visual (nome da escola, brasão/logo) serão parametrizáveis na Interface do sistema (Fase 4). 
+
+**Justificativa**: Garante que o Picasso seja distribuído como um pacote universal para a rede estadual sem precisar de builds exclusivos por escola.
+
+**Consequências**:
+- O frontend precisará de uma aba de configurações.
+- A fase 3 (Geração de PDF) deverá ler as configurações do banco JSON de forma dinâmica.
+
+---
+
+## ADR-013
+### Política de Expurgo de Dados
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: Por questões de privacidade (LGPD) e higienização para o novo ano letivo, escolas precisam remover dados antigos de alunos. A responsabilidade do dado scrapeado é da escola e fica retido apenas localmente.
+
+**Decisão**: Implementar no Roadmap futuro uma funcionalidade de exclusão total de dados (hard-delete) da base JSON e das pastas de imagens. 
+
+**Justificativa**: Como a escola tem posse dos dados offline na máquina, é vital oferecer uma funcionalidade para sanitização do ambiente a cada ciclo letivo, evitando vazamentos locais ou mistura de alunos inativos com novos.
+
+**Consequências**:
+- Adiciona um novo fluxo de UI (Painel de Configurações avançadas).
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
 |------|-----------|
 | 2026-08-13 | Criação do documento com ADR-001 a ADR-010 |
 | 2026-09-12 | Adicionado ADR-011. Revisão do ADR-004 (SQLite → JSON), ADR-006 (Playwright/Puppeteer → Electron native) e ADR-009. |
+| 2026-09-12 | Adicionado ADR-012 (Agnosticidade) e ADR-013 (Expurgo de Dados). |
