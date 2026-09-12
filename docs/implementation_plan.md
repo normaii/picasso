@@ -1,0 +1,261 @@
+# Picasso — Gerador de Carteirinha Escolar
+
+Solução para automatizar a geração de carteirinhas estudantis prontas para impressão. O sistema faz scraping dos dados dos alunos (nome, matrícula, turma e foto) do **Conexão Educação (RJ)** usando a sessão autenticada do diretor, apresenta uma interface pesquisável para seleção de alunos e gera PDFs em formato A4 com as carteirinhas.
+
+---
+
+## Revisão do Usuário
+
+> [!IMPORTANT]
+> **Mudança arquitetural**: Como o login no Conexão Educação requer CAPTCHA, o fluxo será: abrir uma janela de navegador embutida (Electron) para o diretor fazer login manualmente → capturar os cookies da sessão → usar esses cookies para scraping automatizado.
+
+> [!IMPORTANT]
+> **Armazenamento em Google Drive**: Os dados (fotos, banco de dados SQLite) serão armazenados em uma pasta local sincronizada com Google Drive. O caminho da pasta será configurável.
+
+---
+
+## Arquitetura Proposta
+
+```mermaid
+graph TD
+    A["🖥️ Interface Electron<br/>Busca & Seleção de Alunos"] -->|"Requisição"| B["⚙️ Backend Local<br/>Node.js + Express"]
+    A -->|"Login manual"| H["🔐 Janela de Login<br/>Navegador Embutido"]
+    H -->|"Cookies de sessão"| E
+    B -->|"Consulta dados"| C["🗄️ SQLite<br/>Pasta Google Drive"]
+    B -->|"Gerar PDF"| D["📄 Gerador de PDF<br/>Puppeteer"]
+    E["🕷️ Módulo de Scraping<br/>Playwright"] -->|"Armazena dados"| C
+    E -->|"Navega com sessão"| F["🌐 Conexão Educação RJ"]
+    E -->|"Baixa fotos"| G["📸 Fotos dos Alunos<br/>Pasta Google Drive"]
+    D -->|"Saída"| I["🖨️ PDF A4 Pronto p/ Impressão"]
+```
+
+### Stack Tecnológica
+
+| Camada | Tecnologia | Justificativa |
+|---|---|---|
+| **Aplicação Desktop** | Electron | Janela de login embutida para CAPTCHA, app local offline |
+| **Front-End** | HTML + CSS + JS (Vanilla) | Design premium, sem build step |
+| **Backend** | Node.js + Express | API local, orquestra scraping e geração de PDF |
+| **Scraping** | Playwright | Automação robusta, reutiliza cookies de sessão |
+| **Banco de Dados** | SQLite (`better-sqlite3`) | Arquivo único, pode ficar na pasta do Google Drive |
+| **Geração de PDF** | Puppeteer | Renderiza HTML/CSS → PDF com fidelidade |
+| **Armazenamento** | Pasta local (Google Drive sync) | Fotos e DB sincronizados na nuvem automaticamente |
+
+---
+
+## Detalhes do Scraping — Conexão Educação
+
+### Fluxo de Login (Manual)
+1. Abrir janela Electron apontando para `https://conexao.educacao.rj.gov.br`
+2. Diretor faz login manualmente (preenche CAPTCHA)
+3. Após login detectado, capturar cookies da sessão
+4. Fechar janela de login, usar cookies no Playwright
+
+### Scraping da Lista de Alunos
+- **URL**: `https://conexao.educacao.rj.gov.br/ConexaoEducacao/Relatorio/PageViewer.aspx?report=RelAlunosMatPTurma&grp=GESTAO`
+- Navegar ao relatório com os cookies capturados
+- Parsear tabela HTML para extrair: **Nome**, **Matrícula**, **Turma**
+- Iterar por todas as turmas disponíveis
+
+### Scraping da Foto do Aluno
+- **URL base**: `https://conexao.educacao.rj.gov.br/ConexaoEducacao/Academico/Alunos.aspx`
+- Para cada matrícula: buscar o aluno na página → obter o link da foto
+- **Elemento da foto**: `img#ct100_cphFormulario_bimgFotoPessoa`
+- **URL da foto**: `src="/ConexaoEducacao/Academico/Alunos.aspx?DXCache={hash}"`
+- Baixar e salvar como `{matricula}.jpg` na pasta de fotos
+
+---
+
+## Mudanças Propostas
+
+### 1. Scaffolding do Projeto
+
+#### [NEW] `picasso/package.json`
+- Scripts: `dev`, `scrape`, `build`
+- Dependências: `electron`, `express`, `playwright`, `better-sqlite3`, `puppeteer`, `cors`
+
+#### [NEW] `picasso/.env.example`
+- `DATA_DIR` — caminho da pasta Google Drive
+- `SYSTEM_URL` — URL do Conexão Educação
+
+#### [NEW] `picasso/main.js`
+- Entry point do Electron
+- Gerencia janela principal e janela de login
+
+#### [NEW] `picasso/server.js`
+- Servidor Express embutido (roda dentro do Electron)
+- Serve arquivos estáticos e monta rotas de API
+
+---
+
+### 2. Camada de Banco de Dados
+
+#### [NEW] `picasso/src/db/schema.sql`
+- Tabela `alunos`: `id`, `nome`, `matricula`, `turma_id`, `turma_nome`, `foto_path`, `data_scraping`
+- Tabela `log_scraping`: `id`, `inicio`, `fim`, `status`, `total_alunos`
+
+#### [NEW] `picasso/src/db/database.js`
+- Inicialização e migração do SQLite
+- Funções: `upsertAluno()`, `buscarAlunos()`, `getAlunosPorIds()`, `getTurmas()`
+- Caminho do arquivo DB configurável (Google Drive)
+
+---
+
+### 3. Módulo de Scraping
+
+#### [NEW] `picasso/src/scraper/sessionManager.js`
+- Abre janela Electron para login manual
+- Monitora navegação para detectar login bem-sucedido
+- Exporta cookies da sessão para uso no Playwright
+
+#### [NEW] `picasso/src/scraper/scraper.js`
+- Orquestrador: recebe cookies → navega ao relatório → extrai alunos → baixa fotos
+- Reporta progresso via eventos
+
+#### [NEW] `picasso/src/scraper/studentListParser.js`
+- Navega ao relatório `RelAlunosMatPTurma`
+- Parseia tabelas HTML: nome, matrícula, turma
+- Lida com paginação se houver
+
+#### [NEW] `picasso/src/scraper/photoFetcher.js`
+- Navega para `Alunos.aspx`, busca por matrícula
+- Extrai URL do `img#ct100_cphFormulario_bimgFotoPessoa`
+- Baixa e salva foto em `{DATA_DIR}/fotos/{matricula}.jpg`
+- Usa placeholder para alunos sem foto
+
+---
+
+### 4. Geração de Carteirinha / PDF
+
+#### [NEW] `picasso/src/generator/cardTemplate.html`
+- Template HTML/CSS para uma carteirinha individual
+- Dimensões exatas para impressão (86mm × 54mm — tamanho cartão)
+- Inclui: logo da escola, foto do aluno, nome, matrícula, turma, ano
+- Design premium e moderno
+
+#### [NEW] `picasso/src/generator/a4Layout.html`
+- Template de página A4 com grid de carteirinhas
+- Otimizado para impressão padrão A4 (210mm × 297mm)
+- ~8-10 carteirinhas por página (2 colunas × 4-5 linhas)
+
+#### [NEW] `picasso/src/generator/pdfGenerator.js`
+- Recebe array de objetos de alunos
+- Injeta dados no template da carteirinha
+- Organiza em layout A4
+- Puppeteer converte HTML → PDF
+- Retorna caminho do arquivo PDF
+
+---
+
+### 5. API Backend
+
+#### [NEW] `picasso/src/api/routes.js`
+- `GET /api/alunos` — Buscar/listar alunos (com filtros)
+- `GET /api/alunos/:id` — Detalhes de um aluno
+- `GET /api/turmas` — Listar turmas disponíveis
+- `POST /api/gerar` — Gerar PDF para alunos selecionados
+- `GET /api/download/:arquivo` — Baixar PDF gerado
+- `POST /api/scraping/iniciar` — Iniciar operação de scraping
+- `GET /api/scraping/status` — Verificar progresso do scraping
+
+---
+
+### 6. Interface Front-End
+
+#### [NEW] `picasso/public/index.html`
+- Página principal SPA em português
+- Barra de busca, filtro por turma, grid de alunos, barra de ações
+
+#### [NEW] `picasso/public/css/styles.css`
+- Design system premium com dark mode
+- Cards com glassmorphism, animações suaves
+- Layout responsivo, estilos otimizados para impressão
+
+#### [NEW] `picasso/public/js/app.js`
+- Lógica de busca e filtragem de alunos
+- Multi-seleção com feedback visual
+- Ação de gerar PDF (chama API, mostra progresso, dispara download)
+- Botão de iniciar scraping com indicador de progresso
+
+---
+
+## Estrutura de Pastas
+
+```
+picasso/
+├── main.js                      # Entry point Electron
+├── server.js                    # Servidor Express embutido
+├── package.json
+├── .env.example
+├── public/                      # Front-end (servido como estático)
+│   ├── index.html
+│   ├── css/
+│   │   └── styles.css
+│   └── js/
+│       └── app.js
+├── src/
+│   ├── api/
+│   │   └── routes.js            # Endpoints da API
+│   ├── db/
+│   │   ├── schema.sql           # Schema do banco
+│   │   └── database.js          # Operações do banco
+│   ├── scraper/
+│   │   ├── sessionManager.js    # Login manual + cookies
+│   │   ├── scraper.js           # Orquestrador de scraping
+│   │   ├── studentListParser.js # Parsing HTML
+│   │   └── photoFetcher.js      # Download de fotos
+│   └── generator/
+│       ├── cardTemplate.html    # Template da carteirinha
+│       ├── a4Layout.html        # Layout A4 multi-carteirinha
+│       └── pdfGenerator.js      # HTML → PDF
+├── data/                        # Ou na pasta Google Drive
+│   ├── fotos/                   # Fotos dos alunos
+│   └── gerados/                 # PDFs gerados
+└── assets/                      # Logo, placeholder
+```
+
+---
+
+## Fases de Desenvolvimento
+
+### Fase 1 — Fundação 🏗️
+- Scaffolding do projeto, dependências, schema do banco
+- Servidor Express básico servindo arquivos estáticos
+- Configuração do Electron (janela principal)
+- Camada de banco de dados com operações CRUD
+
+### Fase 2 — Módulo de Scraping 🕷️
+- Fluxo de login manual via Electron (captura de cookies)
+- Parsing da lista de alunos do relatório
+- Download de fotos dos alunos
+- Armazenamento no SQLite
+
+### Fase 3 — Carteirinha & Geração de PDF 📄
+- Design do template HTML/CSS da carteirinha
+- Sistema de layout A4
+- Pipeline HTML → PDF
+
+### Fase 4 — Interface Front-End 🎨
+- UI premium com busca, filtros, multi-seleção
+- Integração com API backend
+- Trigger de geração de PDF e fluxo de download
+
+### Fase 5 — Polimento & Testes 🧪
+- Tratamento de erros e edge cases
+- Loading states, indicadores de progresso
+- Testes end-to-end com dados reais
+
+---
+
+## Plano de Verificação
+
+### Testes Automatizados
+- Testes unitários para operações do banco de dados
+- Testes unitários para parsing HTML (fixtures mock)
+- Teste de integração para geração de PDF (verificar saída válida)
+
+### Verificação Manual
+- Rodar scraper contra o sistema real (requer credenciais)
+- Inspeção visual das carteirinhas geradas
+- Teste de impressão em papel A4 para verificar dimensões
+- Teste do front-end no navegador embutido

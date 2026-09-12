@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER commit)
+.env
+.env.local
+.env.*.local
+
+# Data directory (photos, DB, generated PDFs)
+data/
+
+# Electron build output
+dist/
+out/
+release/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE / Editor
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Playwright browsers cache
+playwright-browsers/
+
+# Puppeteer cache
+.cache/puppeteer/
