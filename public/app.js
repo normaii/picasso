@@ -48,6 +48,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // Lógica de Sincronização / Scraping
   // ==========================================
+  // Versão Dinâmica (IPC)
+  // ==========================================
+  if (window.picasso && window.picasso.getVersion) {
+    window.picasso.getVersion().then(v => {
+      document.getElementById('app-version-label').innerText = `Versão ${v}`;
+    });
+  }
+
+  // ==========================================
+  // ABA: Sincronização (Scraper)
+  // ==========================================
   const btnSync = document.getElementById('btn-iniciar-sync');
   const logContainer = document.getElementById('log-container');
   const logOutput = document.getElementById('log-output');
@@ -59,26 +70,42 @@ document.addEventListener('DOMContentLoaded', () => {
   btnSync.addEventListener('click', async () => {
     btnSync.disabled = true;
     logContainer.style.display = 'block';
-    logOutput.innerHTML = '<div class="log-line">> Iniciando módulo de extração...</div>';
+    logOutput.innerHTML = '<div class="log-line">> Aguardando login manual no sistema...</div>';
     
-    try {
-      // Chama a rota da API (Fase 2)
-      const res = await fetch('http://localhost:3000/api/scraping/iniciar', { method: 'POST' });
-      const data = await res.json();
-      
-      if (res.ok) {
-        adicionarLog(data.mensagem);
-        // Começa a monitorar o status
-        iniciarPollingDeScraping();
-      } else {
-        adicionarLog(`[ERRO] ${data.erro}`, true);
-        btnSync.disabled = false;
-      }
-    } catch (err) {
-      adicionarLog(`[FALHA DE REDE] Servidor não responde.`, true);
+    // Abre a janela de login via IPC
+    if (window.picasso && window.picasso.openLogin) {
+      window.picasso.openLogin();
+    } else {
+      adicionarLog(`[ERRO] Integração com Electron não disponível.`, true);
       btnSync.disabled = false;
     }
   });
+
+  // Escuta o sucesso do login via IPC
+  if (window.picasso && window.picasso.onLoginSuccess) {
+    window.picasso.onLoginSuccess(async (cookies) => {
+      adicionarLog('Login detectado com sucesso! Iniciando extração...');
+      try {
+        const res = await fetch('http://localhost:3000/api/scraping/iniciar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cookies })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          adicionarLog(data.mensagem);
+          iniciarPollingDeScraping();
+        } else {
+          adicionarLog(`[ERRO] ${data.erro}`, true);
+          btnSync.disabled = false;
+        }
+      } catch (err) {
+        adicionarLog(`[FALHA DE REDE] Servidor não responde.`, true);
+        btnSync.disabled = false;
+      }
+    });
+  }
 
   function adicionarLog(texto, isError = false) {
     const div = document.createElement('div');
