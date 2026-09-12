@@ -156,3 +156,25 @@ ipcMain.handle('open-login', () => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
+
+ipcMain.handle('get-latest-release', async () => {
+  try {
+    const res = await fetch('https://api.github.com/repos/normaii/picasso/releases/latest', {
+      headers: { 'User-Agent': 'Picasso-App' }
+    });
+    if (!res.ok) throw new Error('Falha ao buscar release');
+    const data = await res.json();
+    return {
+      version: data.tag_name, // Ex: "v0.0.4"
+      url: data.html_url
+    };
+  } catch (err) {
+    console.error('[Picasso] Erro ao buscar atualizações:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('open-external-url', (event, url) => {
+  const { shell } = require('electron');
+  shell.openExternal(url);
+});
