@@ -176,4 +176,51 @@ router.get('/health', (req, res) => {
   });
 });
 
+// ============================================================
+// Geração de PDF (Fase 3)
+// ============================================================
+
+const { gerarPdfTurma } = require('../generator/pdfGenerator');
+
+// Mantém um log simples em memória para o progresso do PDF (para fins de demonstração)
+let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null };
+
+/**
+ * POST /api/pdf/gerar
+ * Inicia a geração de PDF para uma turma
+ * Body: { turma: '9A', escolaNome: 'Colégio Estadual', logoUrl: '...' }
+ */
+router.post('/pdf/gerar', async (req, res) => {
+  try {
+    const { turma, escolaNome, logoUrl } = req.body;
+    if (!turma || !escolaNome) {
+      return res.status(400).json({ erro: 'Turma e Nome da Escola são obrigatórios.' });
+    }
+
+    pdfStatus = { status: 'processando', ultimaTurma: turma, arquivo: null, erro: null };
+
+    // Inicia de forma assíncrona
+    gerarPdfTurma(turma, escolaNome, logoUrl)
+      .then(caminho => {
+        pdfStatus = { status: 'concluido', ultimaTurma: turma, arquivo: caminho, erro: null };
+      })
+      .catch(err => {
+        pdfStatus = { status: 'erro', ultimaTurma: turma, arquivo: null, erro: err.message };
+      });
+
+    res.json({ mensagem: `Geração de PDF para a turma ${turma} iniciada em background.` });
+  } catch (error) {
+    console.error('[API] Erro ao iniciar geração de PDF:', error);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+});
+
+/**
+ * GET /api/pdf/status
+ * Retorna o status da geração de PDF
+ */
+router.get('/pdf/status', (req, res) => {
+  res.json({ status: pdfStatus });
+});
+
 module.exports = router;
