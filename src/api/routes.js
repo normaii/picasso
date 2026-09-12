@@ -119,6 +119,8 @@ router.post('/gerar', async (req, res) => {
 // Scraping
 // ============================================================
 
+const { iniciarScraping } = require('../scraper/scraper');
+
 /**
  * POST /api/scraping/iniciar
  * Inicia uma operação de scraping.
@@ -132,11 +134,11 @@ router.post('/scraping/iniciar', async (req, res) => {
       return res.status(400).json({ erro: 'Cookies de sessão não fornecidos.' });
     }
 
-    // TODO: Integrar com módulo de scraping (Fase 2)
-    // const resultado = await iniciarScraping(cookies);
+    // Inicia de forma assíncrona para não bloquear a requisição
+    iniciarScraping(cookies).catch(err => console.error(err));
 
     res.json({
-      mensagem: 'Módulo de scraping será implementado na Fase 2.',
+      mensagem: 'Scraping iniciado em background. Consulte o status para acompanhar.',
     });
   } catch (error) {
     console.error('[API] Erro ao iniciar scraping:', error.message);
@@ -158,6 +160,25 @@ router.get('/scraping/status', (req, res) => {
   }
 });
 
+/**
+ * GET /api/turmas
+ * Retorna as turmas disponíveis baseando-se nos alunos existentes.
+ */
+router.get('/turmas', (req, res) => {
+  try {
+    const { buscarAlunos } = require('../db/database');
+    const alunos = buscarAlunos({ limite: 10000 });
+    const turmasSet = new Set();
+    alunos.forEach(a => {
+      if (a.turma_nome) turmasSet.add(a.turma_nome);
+    });
+    res.json({ turmas: Array.from(turmasSet).sort() });
+  } catch (error) {
+    console.error('[API] Erro ao buscar turmas:', error);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
 // ============================================================
 // Health Check
 // ============================================================
@@ -172,6 +193,53 @@ router.get('/health', (req, res) => {
     versao: require('../../package.json').version,
     timestamp: new Date().toISOString(),
   });
+});
+
+// ============================================================
+// Geração de PDF (Fase 3)
+// ============================================================
+
+const { gerarPdfTurma } = require('../generator/pdfGenerator');
+
+// Mantém um log simples em memória para o progresso do PDF (para fins de demonstração)
+let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null };
+
+/**
+ * POST /api/pdf/gerar
+ * Inicia a geração de PDF para uma turma
+ * Body: { turma: '9A', escolaNome: 'Colégio Estadual', logoUrl: '...' }
+ */
+router.post('/pdf/gerar', async (req, res) => {
+  try {
+    const { turma, escolaNome, logoUrl } = req.body;
+    if (!turma || !escolaNome) {
+      return res.status(400).json({ erro: 'Turma e Nome da Escola são obrigatórios.' });
+    }
+
+    pdfStatus = { status: 'processando', ultimaTurma: turma, arquivo: null, erro: null };
+
+    // Inicia de forma assíncrona
+    gerarPdfTurma(turma, escolaNome, logoUrl)
+      .then(caminho => {
+        pdfStatus = { status: 'concluido', ultimaTurma: turma, arquivo: caminho, erro: null };
+      })
+      .catch(err => {
+        pdfStatus = { status: 'erro', ultimaTurma: turma, arquivo: null, erro: err.message };
+      });
+
+    res.json({ mensagem: `Geração de PDF para a turma ${turma} iniciada em background.` });
+  } catch (error) {
+    console.error('[API] Erro ao iniciar geração de PDF:', error);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+});
+
+/**
+ * GET /api/pdf/status
+ * Retorna o status da geração de PDF
+ */
+router.get('/pdf/status', (req, res) => {
+  res.json({ status: pdfStatus });
 });
 
 module.exports = router;

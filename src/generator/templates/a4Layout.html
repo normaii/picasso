@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Carteirinhas A4</title>
+  <style>
+    /* Reset e Configurações de Página (Print) */
+    @page {
+      size: A4 portrait;
+      margin: 0; /* Remover margens padrão do navegador */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      background-color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* A4 Page Container */
+    .a4-page {
+      width: 210mm;
+      height: 297mm;
+      background: white;
+      /* Margens e espaçamento para as 4 carteirinhas */
+      padding-top: 15mm;
+      padding-bottom: 15mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      page-break-after: always;
+    }
+
+    .a4-page:last-child {
+      page-break-after: auto;
+    }
+
+    /* As linhas que contêm os cartões (inseridos dinamicamente) */
+    .cards-container {
+      /* Estilos globais adicionais se necessário */
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12mm; /* Espaço entre os cartões */
+    }
+
+  </style>
+  <style>
+    /* Aqui será injetado o CSS do cardTemplate (via pdfGenerator) */
+    {{CARD_CSS}}
+  </style>
+</head>
+<body>
+  <!-- Conteúdo de Páginas A4 será injetado aqui -->
+  {{PAGES_CONTENT}}
+</body>
+</html>

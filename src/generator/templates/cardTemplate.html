@@ -1,0 +1,221 @@
+<style>
+/* CSS do Cartão - Este bloco será injetado no a4Layout */
+.card-row {
+  display: flex;
+  width: 172mm; /* 2 cartões de 86mm */
+  height: 54mm; /* Altura padrão */
+  border: 1px dashed #ccc; /* Marca de corte para facilitar */
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.1); /* linha muito sutil */
+}
+
+/* Marca de dobra no centro */
+.card-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 86mm;
+  bottom: 0;
+  width: 1px;
+  border-left: 1px dashed #999;
+  z-index: 10;
+}
+
+.card-verso, .card-frente {
+  width: 86mm;
+  height: 100%;
+  padding: 3mm;
+  position: relative;
+  background-color: #fcfcfc;
+  /* Premium background: sutil gradiente radial e linear azulado */
+  background: radial-gradient(circle at top right, rgba(41, 128, 185, 0.05), transparent 70%),
+              linear-gradient(to bottom, #ffffff, #f0f4f8);
+}
+
+/* ----- VERSO (Esquerda) ----- */
+.card-verso {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  padding: 6mm 4mm;
+}
+
+.card-verso .escola-nome-verso {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a4f76;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-verso .logo-escola {
+  width: 32mm;
+  height: 32mm;
+  object-fit: contain;
+  /* Placeholder visual: uma bolinha levemente sombreada se a img for transparente */
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.card-verso .ano-vigente {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2980b9;
+  letter-spacing: 2px;
+}
+
+/* ----- FRENTE (Direita) ----- */
+.card-frente {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cabecalho curvo / azul */
+.card-frente-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12mm;
+  background: linear-gradient(135deg, #1a4f76, #2980b9);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.card-frente-header .escola-nome-frente {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 0 4mm;
+}
+
+/* Corpo da frente */
+.card-frente-body {
+  margin-top: 13mm;
+  display: flex;
+  height: calc(100% - 13mm);
+  gap: 3mm;
+}
+
+.foto-container {
+  width: 24mm;
+  height: 32mm;
+  flex-shrink: 0;
+  border: 2px solid #2980b9;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #e0e0e0;
+}
+
+.foto-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dados-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 1.5mm;
+  padding-top: 1mm;
+}
+
+.dado-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.dado-label {
+  font-size: 6.5px;
+  color: #7f8c8d;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dado-valor {
+  font-size: 9px;
+  color: #2c3e50;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 48mm;
+}
+
+/* Assinatura no cantinho */
+.assinatura-box {
+  position: absolute;
+  bottom: 2mm;
+  right: 3mm;
+  width: 35mm;
+  text-align: center;
+}
+
+.assinatura-linha {
+  border-bottom: 1px solid #7f8c8d;
+  height: 4mm;
+}
+
+.assinatura-label {
+  font-size: 6px;
+  color: #7f8c8d;
+  margin-top: 1px;
+}
+</style>
+
+<!-- TEMPLATE HTML: Este bloco será repetido para cada aluno -->
+<div class="card-row">
+  <!-- VERSO -->
+  <div class="card-verso">
+    <div class="escola-nome-verso">{{ESCOLA_NOME}}</div>
+    <img src="{{LOGO_URL}}" alt="Logo" class="logo-escola">
+    <div class="ano-vigente">{{ANO}}</div>
+  </div>
+
+  <!-- FRENTE -->
+  <div class="card-frente">
+    <div class="card-frente-header">
+      <div class="escola-nome-frente">{{ESCOLA_NOME}}</div>
+    </div>
+    
+    <div class="card-frente-body">
+      <div class="foto-container">
+        <img src="{{FOTO_URL}}" alt="Foto">
+      </div>
+      
+      <div class="dados-container">
+        <div class="dado-item">
+          <span class="dado-label">Nome do Aluno</span>
+          <span class="dado-valor">{{NOME}}</span>
+        </div>
+        <div class="dado-item">
+          <span class="dado-label">Matrícula</span>
+          <span class="dado-valor">{{MATRICULA}}</span>
+        </div>
+        <div class="dado-item">
+          <span class="dado-label">Turma</span>
+          <span class="dado-valor">{{TURMA}}</span>
+        </div>
+        <div class="dado-item">
+          <span class="dado-label">Data de Emissão</span>
+          <span class="dado-valor">{{DATA_EMISSAO}}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="assinatura-box">
+      <div class="assinatura-linha"></div>
+      <div class="assinatura-label">Assinatura</div>
+    </div>
+  </div>
+</div>
