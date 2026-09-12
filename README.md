@@ -41,125 +41,108 @@ Antes de começar, você precisa ter instalado no seu computador:
 | **Node.js** | 18 ou superior | Abra o terminal e digite `node --version` | [nodejs.org](https://nodejs.org/) |
 | **Git** | Qualquer versão | Abra o terminal e digite `git --version` | [git-scm.com](https://git-scm.com/) |
 
-> 💡 **Dica**: Ao instalar o Node.js, escolha a versão **LTS** (Long Term Support). Ela já inclui o **npm** (gerenciador de pacotes) que usaremos nos próximos passos.
-
-### Como abrir o terminal?
-
-- **Windows**: Pressione `Win + R`, digite `cmd` e pressione Enter. Ou busque por "Prompt de Comando" no menu Iniciar.
-- **Mac**: Abra o aplicativo "Terminal" (está em Aplicativos > Utilitários).
-- **Linux**: Pressione `Ctrl + Alt + T`.
+> 💡 **Dica**: Ao instalar o Node.js, escolha a versão **LTS** (Long Term Support). Ela já inclui o **npm** (gerenciador de pacotes) que será usado automaticamente.
 
 ---
 
-## 📦 Instalação passo a passo
+## 📦 Instalação
 
-### 1. Clonar o repositório
+### Para diretores e usuários (caminho simples)
 
-Abra o terminal e execute:
+Se você não é programador, siga estes passos — ou peça ao técnico de informática da escola:
+
+#### 1. Baixar o projeto
+
+Peça para o técnico clonar o repositório ou [baixe o ZIP aqui](https://github.com/normaii/picasso/archive/refs/heads/master.zip) e descompacte em uma pasta.
+
+#### 2. Rodar o instalador
+
+Dentro da pasta do projeto, abra a pasta **`scripts`** e dê **duplo clique** no arquivo:
+
+```
+📁 scripts/
+   └── 🔧 instalar.bat
+```
+
+O instalador faz tudo automaticamente:
+- ✅ Verifica se o Node.js está instalado
+- ✅ Instala as dependências do projeto
+- ✅ Instala o navegador para coleta de dados
+- ✅ Cria o arquivo de configuração
+- ✅ **Cria um atalho "Picasso" no Desktop**
+
+> ⏳ Na primeira vez pode demorar alguns minutos. Aguarde até ver a mensagem **"Instalação concluída com sucesso!"**.
+
+#### 3. Pronto! É só usar
+
+Depois da instalação, um atalho **"Picasso"** aparece no seu Desktop. Para usar a aplicação, é só **dar duplo clique** nesse atalho — como qualquer outro programa.
+
+```
+🖥️ Desktop/
+   └── 🎨 Picasso        ← clique aqui para abrir!
+```
+
+> 💡 Você **não precisa abrir terminal, digitar comandos nem saber programar**. Basta clicar no atalho e a aplicação abre sozinha.
+
+---
+
+### Para desenvolvedores (caminho técnico)
+
+#### 1. Clonar e instalar
 
 ```bash
 git clone https://github.com/normaii/picasso.git
-```
-
-Isso cria uma pasta chamada `picasso` com todos os arquivos do projeto.
-
-### 2. Entrar na pasta do projeto
-
-```bash
 cd picasso
-```
-
-### 3. Instalar as dependências
-
-```bash
 npm install
-```
-
-> ⏳ Este comando pode demorar alguns minutos na primeira vez, pois precisa baixar várias bibliotecas. Aguarde até ver a mensagem de conclusão.
-
-### 4. Instalar o navegador para scraping
-
-```bash
 npx playwright install chromium
 ```
 
-> Este comando baixa o navegador Chromium que o Picasso usa internamente para acessar o Conexão Educação.
+#### 2. Configurar o ambiente
 
----
-
-## ⚙️ Configuração
-
-### 1. Criar o arquivo de configuração
-
-Na pasta do projeto, copie o arquivo de exemplo:
-
-**Windows:**
 ```bash
 copy .env.example .env
 ```
 
-**Mac/Linux:**
-```bash
-cp .env.example .env
-```
-
-### 2. Editar o arquivo `.env`
-
-Abra o arquivo `.env` com qualquer editor de texto (Bloco de Notas, VS Code, etc.) e configure:
+Edite o `.env` conforme necessário:
 
 ```ini
-# Pasta onde os dados serão salvos (fotos, banco de dados, PDFs gerados).
-# Se quiser backup automático, aponte para uma pasta do Google Drive.
+# Pasta de dados (pode apontar para o Google Drive)
 DATA_DIR=./data
 
-# URL do sistema (não precisa alterar).
+# URL do sistema (não altere)
 SYSTEM_URL=https://conexao.educacao.rj.gov.br
 
-# Porta do servidor local (não precisa alterar).
+# Porta do servidor local
 PORT=3000
 ```
 
-> ⚠️ **Importante**: O arquivo `.env` contém configurações locais e **nunca** deve ser compartilhado ou enviado para o GitHub. Ele já está protegido pelo `.gitignore`.
+> ⚠️ **Importante**: O arquivo `.env` contém configurações locais e **nunca** deve ser compartilhado. Ele já está protegido pelo `.gitignore`.
 
 #### Usando com Google Drive (opcional)
 
-Se quiser que fotos e PDFs façam backup automático na nuvem, altere o `DATA_DIR` para apontar para uma pasta dentro do seu Google Drive:
+Para backup automático de fotos e PDFs na nuvem, altere o `DATA_DIR`:
 
 ```ini
-# Exemplo Windows:
 DATA_DIR=C:\Users\SeuNome\Google Drive\Picasso
-
-# Exemplo Mac:
-DATA_DIR=/Users/seunome/Google Drive/Picasso
 ```
 
 ---
 
 ## 🚀 Como executar
 
-### Modo desenvolvimento (para programadores)
+### Para diretores (uso no dia a dia)
 
-Este modo abre a aplicação com o **DevTools** do navegador visível, útil para depuração:
+Dê **duplo clique** no atalho **"Picasso"** no Desktop. Pronto!
 
-```bash
-npm run dev
-```
+> Se o atalho não existir, rode o instalador novamente (`scripts/instalar.bat`) ou dê duplo clique diretamente no arquivo `picasso.bat` na pasta do projeto.
 
-### Modo normal (para uso no dia a dia)
+### Para desenvolvedores
 
-```bash
-npm start
-```
-
-### Apenas o servidor (sem interface Electron)
-
-Útil para testes ou se quiser acessar a interface pelo navegador:
-
-```bash
-npm run server
-```
-
-Depois abra no navegador: [http://localhost:3000](http://localhost:3000)
+| Comando | O que faz |
+|---------|-----------|
+| `npm start` | Abre a aplicação desktop normalmente |
+| `npm run dev` | Abre com DevTools visível (depuração) |
+| `npm run server` | Inicia apenas o servidor web em [localhost:3000](http://localhost:3000) |
 
 ---
 
@@ -202,11 +185,15 @@ Depois abra no navegador: [http://localhost:3000](http://localhost:3000)
 
 ```
 picasso/
+├── picasso.bat                   # 🎨 Lançador (duplo clique para abrir!)
 ├── main.js                       # Ponto de entrada do Electron (app desktop)
 ├── server.js                     # Servidor web local (Express)
 ├── package.json                  # Dependências e scripts do projeto
 ├── .env.example                  # Modelo de configuração (copie para .env)
 ├── .gitignore                    # Arquivos ignorados pelo Git
+│
+├── scripts/                      # Scripts auxiliares
+│   └── instalar.bat              # Instalador automático (cria atalho no Desktop)
 │
 ├── public/                       # Interface do usuário (front-end)
 │   ├── index.html                # Página principal
@@ -245,19 +232,24 @@ picasso/
 
 ---
 
-## 📜 Scripts disponíveis
+## 📜 Scripts e comandos
 
-Execute estes comandos na pasta do projeto:
+### Para diretores (sem terminal)
+
+| Arquivo | O que faz |
+|---------|-----------|
+| `scripts/instalar.bat` | Instalação completa + cria atalho no Desktop (rodar **uma vez**) |
+| `picasso.bat` | Abre o Picasso (é o que o atalho do Desktop executa) |
+
+### Para desenvolvedores (via terminal)
 
 | Comando | O que faz |
 |---------|-----------|
 | `npm install` | Instala todas as dependências do projeto |
 | `npm start` | Abre a aplicação desktop normalmente |
-| `npm run dev` | Abre em modo de desenvolvimento (com ferramentas de depuração) |
-| `npm run server` | Inicia apenas o servidor web (sem a janela desktop) |
+| `npm run dev` | Abre em modo desenvolvimento (com DevTools) |
+| `npm run server` | Inicia apenas o servidor web (sem janela desktop) |
 | `npm run build` | Gera o instalador `.exe` para distribuição (Windows) |
-| `npm run build:mac` | Gera o instalador para macOS |
-| `npm run build:linux` | Gera o instalador para Linux |
 
 ---
 
