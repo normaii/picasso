@@ -76,14 +76,22 @@ function openLoginWindow() {
 
   // Monitora navegação para detectar login bem-sucedido
   loginWindow.webContents.on('did-navigate', async (event, url) => {
-    // Após login, a URL muda para a página principal do sistema
-    if (url.includes('/ConexaoEducacao/') && !url.includes('Login')) {
+    const lowerUrl = url.toLowerCase();
+    const isRootOrBase = lowerUrl === systemUrl.toLowerCase() || 
+                         lowerUrl === systemUrl.toLowerCase() + '/' ||
+                         lowerUrl.endsWith('/conexaoeducacao') || 
+                         lowerUrl.endsWith('/conexaoeducacao/');
+    const isLogin = lowerUrl.includes('login');
+
+    // Após login, a URL muda para a página principal do sistema (não é raiz e não é login)
+    if (lowerUrl.includes('/conexaoeducacao/') && !isLogin && !isRootOrBase) {
       // Captura os cookies da sessão
       const cookies = await loginWindow.webContents.session.cookies.get({
         domain: '.educacao.rj.gov.br',
       });
 
-      // Envia os cookies para o processo principal
+      // Se não pegou nenhum cookie, talvez a navegação ainda não tenha setado.
+      // Mas assumiremos que navegou pra dentro do sistema, então logou.
       mainWindow.webContents.send('login-success', cookies);
 
       // Fecha a janela de login

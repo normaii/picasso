@@ -27,6 +27,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-015](#adr-015) | Single Instance Lock (Prevenção de Zumbis) | ✅ Aceito | 2026-09-12 |
 | [ADR-016](#adr-016) | Política de Atualização do Runtime (Node.js LTS) | ✅ Aceito | 2026-09-12 |
 | [ADR-017](#adr-017) | Mecanismo Passivo de Atualização (Update Checker) | ✅ Aceito | 2026-09-12 |
+| [ADR-018](#adr-018) | Pipeline de Auto-Bumping e Pre-Releases | ✅ Aceito | 2026-09-12 |
 
 ---
 
@@ -339,6 +340,22 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-018
+### Pipeline de Auto-Bumping e Pre-Releases
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: O versionamento e lançamento manuais (`git tag`, alteração de `package.json`, publicação de releases) são propensos a erro humano e consomem tempo. Além disso, as releases recém-compiladas não devem atingir os usuários finais (escolas) antes de serem validadas manualmente.
+
+**Decisão**: 
+1. **Auto-Bump**: Uma Action (`auto-bump.yml`) escuta *pushes/merges* na `master`. Ela incrementa o *patch* do `package.json` (`npm version patch`), faz o commit com `[skip ci]` e cria a tag vX.Y.Z, disparando a pipeline de release.
+2. **Pre-release Flag**: O `electron-builder` foi configurado (`releaseType: "prerelease"`) para gerar as GitHub Releases sempre como *Pre-release*. 
+3. **Promoção Manual**: O *Update Checker* (ADR-017) busca em `/releases/latest` (que ignora *pre-releases*). Portanto, a versão só fica visível para os usuários quando o administrador manualmente remover a flag de *Pre-release* pelo painel do GitHub.
+
+**Justificativa**: Garante *Continuous Delivery* sem quebrar o funil de qualidade (QA) e elimina intervenção manual no Git.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -350,3 +367,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-015 (Single Instance Lock). |
 | 2026-09-12 | Adicionado ADR-016 (Política do Runtime Node.js LTS). |
 | 2026-09-12 | Adicionado ADR-017 (Update Checker Passivo). |
+| 2026-09-12 | Adicionado ADR-018 (Auto-Bumping e Pre-Releases). |
