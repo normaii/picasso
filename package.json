@@ -17,7 +17,8 @@
     "icon": "assets/icon.ico",
     "publish": [
       {
-        "provider": "github"
+        "provider": "github",
+        "releaseType": "prerelease"
       }
     ],
     "directories": {
