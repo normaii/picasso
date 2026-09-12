@@ -53,7 +53,47 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.picasso && window.picasso.getVersion) {
     window.picasso.getVersion().then(v => {
       document.getElementById('app-version-label').innerText = `Versão ${v}`;
+      checkUpdates(v);
     });
+  }
+
+  async function checkUpdates(currentVersion) {
+    const container = document.getElementById('update-status-container');
+    if (!container || !window.picasso.getLatestRelease) return;
+
+    const release = await window.picasso.getLatestRelease();
+    if (!release) {
+      container.innerHTML = `<div style="color: #f87171;"><i class="ph ph-warning"></i> Falha ao verificar atualizações.</div>`;
+      return;
+    }
+
+    // Compara string de versão simplificadamente (ignora o "v")
+    const cleanCurrent = currentVersion.replace('v', '');
+    const cleanLatest = release.version.replace('v', '');
+
+    if (cleanCurrent === cleanLatest) {
+      container.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; color: #10b981;">
+          <i class="ph ph-check-circle" style="font-size: 1.5rem;"></i>
+          <span>Você está usando a versão mais recente (${release.version}).</span>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; color: #f59e0b;">
+          <i class="ph ph-warning-circle" style="font-size: 1.5rem;"></i>
+          <span>Nova versão <strong>${release.version}</strong> disponível!</span>
+          <button id="btn-download-update" class="btn btn-primary" style="margin-left: auto; padding: 0.5rem 1rem;">
+            Baixar Atualização
+          </button>
+        </div>
+      `;
+
+      document.getElementById('btn-download-update').addEventListener('click', (e) => {
+        e.preventDefault();
+        window.picasso.openExternalUrl(release.url);
+      });
+    }
   }
 
   // ==========================================

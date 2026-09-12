@@ -26,6 +26,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-014](#adr-014) | Orientação e Distribuição do Layout (Futuro) | 🔮 Proposto (V2) | 2026-09-12 |
 | [ADR-015](#adr-015) | Single Instance Lock (Prevenção de Zumbis) | ✅ Aceito | 2026-09-12 |
 | [ADR-016](#adr-016) | Política de Atualização do Runtime (Node.js LTS) | ✅ Aceito | 2026-09-12 |
+| [ADR-017](#adr-017) | Mecanismo Passivo de Atualização (Update Checker) | ✅ Aceito | 2026-09-12 |
 
 ---
 
@@ -325,6 +326,19 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-017
+### Mecanismo Passivo de Atualização (Update Checker)
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: O sistema precisa notificar o usuário (diretor da escola) quando uma nova versão com correções de bugs ou novas *features* estiver disponível. Implementar Auto-Update (Squirrel) exige certificados assinados e gera atritos de firewall e privilégios no ambiente escolar.
+
+**Decisão**: Implementar um "Update Checker Passivo". O Electron (Backend) faz um `fetch` para a API pública do GitHub Releases, compara a versão da tag mais recente com a versão compilada, e exibe no Frontend (aba de Configurações) se o software está atualizado ou se precisa de intervenção manual (baixar o novo `.exe`).
+
+**Justificativa**: Evita a complexidade técnica do auto-update nativo na Fase 1, entregando valor imediato ao alertar usuários desatualizados sem interrupções intrusivas.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -335,3 +349,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-014 (Alteração de Orientação do Layout para V2). |
 | 2026-09-12 | Adicionado ADR-015 (Single Instance Lock). |
 | 2026-09-12 | Adicionado ADR-016 (Política do Runtime Node.js LTS). |
+| 2026-09-12 | Adicionado ADR-017 (Update Checker Passivo). |

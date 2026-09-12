@@ -27,4 +27,16 @@ contextBridge.exposeInMainWorld('picasso', {
   onLoginSuccess: (callback) => {
     ipcRenderer.on('login-success', (event, cookies) => callback(cookies));
   },
+
+  /**
+   * Busca a última release disponível no GitHub.
+   * @returns {Promise<{version: string, url: string} | null>}
+   */
+  getLatestRelease: () => ipcRenderer.invoke('get-latest-release'),
+
+  /**
+   * Abre uma URL no navegador padrão do sistema operacional.
+   * @param {string} url 
+   */
+  openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 });
