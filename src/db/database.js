@@ -3,14 +3,17 @@
 // ============================================================
 // Gerencia o SQLite: inicialização, migrações e operações
 // CRUD para alunos e logs de scraping.
+//
+// Usa o módulo nativo node:sqlite (Node 22+), sem dependência
+// externa — elimina necessidade de compilação C++ (node-gyp).
 // ============================================================
 
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-/** @type {Database.Database | null} */
+/** @type {DatabaseSync | null} */
 let db = null;
 
 /**
@@ -31,16 +34,13 @@ function getDbPath() {
 
 /**
  * Inicializa o banco de dados e cria as tabelas se necessário.
- * @returns {Database.Database}
+ * @returns {DatabaseSync}
  */
 function initDatabase() {
   if (db) return db;
 
   const dbPath = getDbPath();
-  db = new Database(dbPath);
-
-  // Habilita WAL mode para melhor performance
-  db.pragma('journal_mode = WAL');
+  db = new DatabaseSync(dbPath);
 
   // Executa o schema de criação das tabelas
   const schemaPath = path.join(__dirname, 'schema.sql');
@@ -53,7 +53,7 @@ function initDatabase() {
 
 /**
  * Retorna a instância do banco de dados.
- * @returns {Database.Database}
+ * @returns {DatabaseSync}
  */
 function getDb() {
   if (!db) {
@@ -80,32 +80,28 @@ function getDb() {
 function upsertAluno({ nome, matricula, turma_id, turma_nome, foto_path }) {
   const stmt = getDb().prepare(`
     INSERT INTO alunos (nome, matricula, turma_id, turma_nome, foto_path)
-    VALUES (@nome, @matricula, @turma_id, @turma_nome, @foto_path)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(matricula) DO UPDATE SET
-      nome = @nome,
-      turma_id = @turma_id,
-      turma_nome = @turma_nome,
-      foto_path = COALESCE(@foto_path, foto_path),
+      nome = excluded.nome,
+      turma_id = excluded.turma_id,
+      turma_nome = excluded.turma_nome,
+      foto_path = COALESCE(excluded.foto_path, foto_path),
       atualizado_em = datetime('now', 'localtime')
   `);
 
-  return stmt.run({ nome, matricula, turma_id, turma_nome, foto_path });
+  return stmt.run(nome, matricula, turma_id || null, turma_nome || null, foto_path || null);
 }
 
 /**
- * Insere ou atualiza múltiplos alunos em uma transação.
+ * Insere ou atualiza múltiplos alunos.
  * @param {Array<Object>} alunos - Array de objetos aluno.
  * @returns {number} Quantidade de alunos processados.
  */
 function upsertAlunosBatch(alunos) {
-  const transaction = getDb().transaction((lista) => {
-    for (const aluno of lista) {
-      upsertAluno(aluno);
-    }
-    return lista.length;
-  });
-
-  return transaction(alunos);
+  for (const aluno of alunos) {
+    upsertAluno(aluno);
+  }
+  return alunos.length;
 }
 
 /**
@@ -119,23 +115,22 @@ function upsertAlunosBatch(alunos) {
  */
 function buscarAlunos({ busca, turma, limite = 100, offset = 0 } = {}) {
   let query = 'SELECT * FROM alunos WHERE 1=1';
-  const params = {};
+  const params = [];
 
   if (busca) {
-    query += ' AND (nome LIKE @busca OR matricula LIKE @busca)';
-    params.busca = `%${busca}%`;
+    query += ' AND (nome LIKE ? OR matricula LIKE ?)';
+    params.push(`%${busca}%`, `%${busca}%`);
   }
 
   if (turma) {
-    query += ' AND turma_nome = @turma';
-    params.turma = turma;
+    query += ' AND turma_nome = ?';
+    params.push(turma);
   }
 
-  query += ' ORDER BY turma_nome, nome LIMIT @limite OFFSET @offset';
-  params.limite = limite;
-  params.offset = offset;
+  query += ' ORDER BY turma_nome, nome LIMIT ? OFFSET ?';
+  params.push(limite, offset);
 
-  return getDb().prepare(query).all(params);
+  return getDb().prepare(query).all(...params);
 }
 
 /**
@@ -171,7 +166,7 @@ function getTurmas() {
  */
 function getTotalAlunos() {
   const result = getDb().prepare('SELECT COUNT(*) as total FROM alunos').get();
-  return result.total;
+  return result ? result.total : 0;
 }
 
 /**
@@ -199,7 +194,7 @@ function criarLogScraping() {
     INSERT INTO log_scraping (status) VALUES ('em_andamento')
   `).run();
 
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
 /**
@@ -210,14 +205,19 @@ function criarLogScraping() {
 function atualizarLogScraping(id, { status, total_alunos, fotos_baixadas, erros, mensagem }) {
   getDb().prepare(`
     UPDATE log_scraping SET
-      fim = CASE WHEN @status IN ('concluido', 'erro') THEN datetime('now', 'localtime') ELSE fim END,
-      status = COALESCE(@status, status),
-      total_alunos = COALESCE(@total_alunos, total_alunos),
-      fotos_baixadas = COALESCE(@fotos_baixadas, fotos_baixadas),
-      erros = COALESCE(@erros, erros),
-      mensagem = COALESCE(@mensagem, mensagem)
-    WHERE id = @id
-  `).run({ id, status, total_alunos, fotos_baixadas, erros, mensagem });
+      fim = CASE WHEN ? IN ('concluido', 'erro') THEN datetime('now', 'localtime') ELSE fim END,
+      status = COALESCE(?, status),
+      total_alunos = COALESCE(?, total_alunos),
+      fotos_baixadas = COALESCE(?, fotos_baixadas),
+      erros = COALESCE(?, erros),
+      mensagem = COALESCE(?, mensagem)
+    WHERE id = ?
+  `).run(
+    status || null, status || null,
+    total_alunos ?? null, fotos_baixadas ?? null,
+    erros ?? null, mensagem || null,
+    id
+  );
 }
 
 /**
