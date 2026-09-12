@@ -25,6 +25,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-013](#adr-013) | Política de Expurgo de Dados | ✅ Aceito | 2026-09-12 |
 | [ADR-014](#adr-014) | Orientação e Distribuição do Layout (Futuro) | 🔮 Proposto (V2) | 2026-09-12 |
 | [ADR-015](#adr-015) | Single Instance Lock (Prevenção de Zumbis) | ✅ Aceito | 2026-09-12 |
+| [ADR-016](#adr-016) | Política de Atualização do Runtime (Node.js LTS) | ✅ Aceito | 2026-09-12 |
 
 ---
 
@@ -311,6 +312,19 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-016
+### Política de Atualização do Runtime (Node.js LTS)
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: Pipelines de CI/CD (GitHub Actions) emitem avisos de depreciação ao rodar com versões antigas do Node.js (ex: Node 20 em 2026). Manter runtimes defasados expõe as esteiras a falhas futuras, vulnerabilidades e incompatibilidades.
+
+**Decisão**: Os Runners das Actions e os pacotes de compilação devem estar atrelados estritamente à versão **LTS (Long Term Support) Ativa** mais recente (ex: Node 24).
+
+**Justificativa**: Garante previsibilidade e longevidade para o projeto open-source sem sacrificar estabilidade (já que evitamos versões *Current* ou *Nightly*). Como o Electron empacota seu próprio Node.js no cliente final, essa atualização impacta exclusivamente as máquinas de build, sendo de baixo risco para a aplicação.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -320,3 +334,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-012 (Agnosticidade) e ADR-013 (Expurgo de Dados). |
 | 2026-09-12 | Adicionado ADR-014 (Alteração de Orientação do Layout para V2). |
 | 2026-09-12 | Adicionado ADR-015 (Single Instance Lock). |
+| 2026-09-12 | Adicionado ADR-016 (Política do Runtime Node.js LTS). |
