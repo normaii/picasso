@@ -24,6 +24,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-012](#adr-012) | Agnosticidade de Escola (Multi-escola) | ✅ Aceito | 2026-09-12 |
 | [ADR-013](#adr-013) | Política de Expurgo de Dados | ✅ Aceito | 2026-09-12 |
 | [ADR-014](#adr-014) | Orientação e Distribuição do Layout (Futuro) | 🔮 Proposto (V2) | 2026-09-12 |
+| [ADR-015](#adr-015) | Single Instance Lock (Prevenção de Zumbis) | ✅ Aceito | 2026-09-12 |
 
 ---
 
@@ -293,6 +294,23 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-015
+### Single Instance Lock (Prevenção de Zumbis)
+
+**Status**: ✅ Aceito — 2026-09-12
+
+**Contexto**: O executável compilado (.exe) demora alguns segundos para iniciar (boot do Electron e Chromium). Em ambientes lentos, o usuário final pode clicar múltiplas vezes no atalho, abrindo várias instâncias simultâneas em background. Isso causa erro de porta (EADDRINUSE na porta 3000) e os processos ficam congelados, consumindo memória ("zumbis").
+
+**Decisão**: Utilizar `app.requestSingleInstanceLock()` do Electron no `main.js`. 
+
+**Justificativa**: Garante que apenas o processo mestre inicial sobreviva. Se uma segunda execução for detectada, ela será terminada imediatamente e o foco será passado para a janela já existente (restaurando-a, caso esteja minimizada).
+
+**Consequências**:
+- Fim de travamentos silenciosos por concorrência de portas.
+- Otimização do consumo de memória RAM do usuário.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -301,3 +319,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-011. Revisão do ADR-004 (SQLite → JSON), ADR-006 (Playwright/Puppeteer → Electron native) e ADR-009. |
 | 2026-09-12 | Adicionado ADR-012 (Agnosticidade) e ADR-013 (Expurgo de Dados). |
 | 2026-09-12 | Adicionado ADR-014 (Alteração de Orientação do Layout para V2). |
+| 2026-09-12 | Adicionado ADR-015 (Single Instance Lock). |

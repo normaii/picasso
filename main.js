@@ -97,30 +97,53 @@ function openLoginWindow() {
 }
 
 // ============================================================
+// ============================================================
 // Ciclo de Vida do Electron
 // ============================================================
 
-app.whenReady().then(async () => {
-  // Inicia o servidor Express antes de criar a janela
-  await startServer(PORT);
-  console.log(`[Picasso] Servidor rodando em http://localhost:${PORT}`);
+// Garante que apenas uma instância do aplicativo esteja rodando (ADR-015)
+const gotTheLock = app.requestSingleInstanceLock();
 
-  createMainWindow();
-});
+if (!gotTheLock) {
+  console.log('[Picasso] Uma instância já está em execução. Fechando esta...');
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Alguém tentou abrir uma segunda instância, vamos focar na nossa janela principal
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 
-// Fecha a aplicação quando todas as janelas forem fechadas (Windows/Linux)
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  app.whenReady().then(async () => {
+    // Configura o diretório de dados para o AppData seguro do sistema e passa pro Express via ENV
+    const userDataPath = app.getPath('userData');
+    const dataDir = path.join(userDataPath, 'data');
+    process.env.DATA_DIR = dataDir;
+    
+    // Inicia o servidor Express antes de criar a janela
+    await startServer(PORT);
+    console.log(`[Picasso] Servidor rodando em http://localhost:${PORT}`);
+    console.log(`[Picasso] Dados salvos em: ${dataDir}`);
 
-// macOS: recria janela ao clicar no ícone do dock
-app.on('activate', () => {
-  if (mainWindow === null) {
     createMainWindow();
-  }
-});
+  });
+
+  // Fecha a aplicação quando todas as janelas forem fechadas (Windows/Linux)
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+
+  // macOS: recria janela ao clicar no ícone do dock
+  app.on('activate', () => {
+    if (mainWindow === null) {
+      createMainWindow();
+    }
+  });
+}
 
 // ============================================================
 // IPC — Comunicação entre renderer e main process

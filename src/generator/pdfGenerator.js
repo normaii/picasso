@@ -96,7 +96,8 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
     });
 
     // 4. Salvar PDF no disco
-    const pdfDir = path.join(process.cwd(), 'data', 'pdfs');
+    const baseDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+    const pdfDir = path.join(baseDir, 'pdfs');
     if (!fs.existsSync(pdfDir)) {
       fs.mkdirSync(pdfDir, { recursive: true });
     }
