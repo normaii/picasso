@@ -8,6 +8,8 @@ on:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     
     # É necessário dar permissão de escrita para a Action poder criar a Release
     permissions:

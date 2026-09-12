@@ -13,6 +13,8 @@ jobs:
     # Evita que a própria action crie um loop se empurrar pra master (usando [skip ci] no commit tb ajuda, mas é bom proteger)
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     
     steps:
       - name: Checkout Repository
