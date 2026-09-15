@@ -66,36 +66,58 @@ async function iniciarScraping(cookies) {
     // Como estamos no ambiente mockado ou de testes, este script precisa refletir
     // o HTML real. Um exemplo hipotético:
     
-    const alunosExtraidos = await win.webContents.executeJavaScript(`
+    const resultadoScript = await win.webContents.executeJavaScript(`
       (() => {
-        const alunos = [];
-        const trs = document.querySelectorAll('table tr.aluno-row'); // Seletor fictício
-        
-        if (trs.length === 0) {
-          // Vamos capturar um pedaço do HTML real para análise do desenvolvedor
-          const bodyHTML = document.body.innerHTML;
-          // Pegamos os primeiros 5000 caracteres para não estourar o console
-          console.log("[Scraper Injetado] HTML da página de relatório:", bodyHTML.substring(0, 5000));
-          return [];
-        }
-
-        trs.forEach(tr => {
-          const nome = tr.querySelector('.nome')?.innerText.trim();
-          const matricula = tr.querySelector('.matricula')?.innerText.trim();
-          const turma_nome = tr.querySelector('.turma')?.innerText.trim();
-          if (nome && matricula) {
-            alunos.push({ nome, matricula, turma_nome });
+        try {
+          const alunos = [];
+          
+          // O sistema do Governo usa Microsoft SSRS, o relatório fica dentro de um iframe!
+          const iframe = document.getElementById('ReportFramerptViewer');
+          let doc = document;
+          
+          // Se o iframe existir e tiver conteúdo, usamos o documento dele
+          if (iframe && iframe.contentDocument) {
+            doc = iframe.contentDocument;
           }
-        });
-        return alunos;
+
+          // Seletor fictício - ainda precisamos do HTML real para acertar
+          const trs = doc.querySelectorAll('table tr.aluno-row'); 
+          
+          if (trs.length === 0) {
+            return { error: 'not_found', html: doc.body.innerHTML };
+          }
+
+          trs.forEach(tr => {
+            const nome = tr.querySelector('.nome')?.innerText.trim();
+            const matricula = tr.querySelector('.matricula')?.innerText.trim();
+            const turma_nome = tr.querySelector('.turma')?.innerText.trim();
+            if (nome && matricula) {
+              alunos.push({ nome, matricula, turma_nome });
+            }
+          });
+          return { error: null, alunos: alunos };
+        } catch (e) {
+          return { error: 'not_found', html: "ERRO DE CÓDIGO INJETADO: " + e.message };
+        }
       })();
     `);
     
-    if (alunosExtraidos.length === 0) {
-      console.log("[Scraper] A tabela de alunos não foi encontrada. Verifique o HTML injetado acima.");
+    let alunosExtraidos = [];
+
+    if (resultadoScript.error === 'not_found') {
+      const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report.html');
+      fs.writeFileSync(debugPath, resultadoScript.html, 'utf-8');
+      console.log(\`\n=======================================================\`);
+      console.log(\`[Scraper] A tabela de alunos não foi encontrada!\`);
+      console.log(\`[Scraper] Eu salvei todo o HTML da página neste arquivo:\`);
+      console.log(\`[Scraper] -> \${debugPath}\`);
+      console.log(\`[Scraper] Por favor, abra esse arquivo, copie o código e me envie!\`);
+      console.log(\`=======================================================\n\`);
+    } else {
+      alunosExtraidos = resultadoScript.alunos;
     }
 
-    console.log(`[Scraper] Encontrados ${alunosExtraidos.length} alunos.`);
+    console.log(\`[Scraper] Encontrados \${alunosExtraidos.length} alunos.\`);
     
     // 4. Salvar alunos no BD
     if (alunosExtraidos.length > 0) {
