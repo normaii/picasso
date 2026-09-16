@@ -104,13 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const logOutput = document.getElementById('log-output');
   const statTotalAlunos = document.getElementById('stat-total-alunos');
   const statTotalTurmas = document.getElementById('stat-total-turmas');
+  const btnCancelar = document.getElementById('btn-cancelar-sync');
 
   let syncPollingInterval = null;
+  let lastLogMessage = ''; // Para evitar duplicar a mesma mensagem na UI
 
   btnSync.addEventListener('click', async () => {
     btnSync.disabled = true;
     logContainer.style.display = 'block';
     logOutput.innerHTML = '<div class="log-line">> Aguardando login manual no sistema...</div>';
+    lastLogMessage = '';
+    btnCancelar.style.display = 'inline-flex';
+    
     
     // Abre a janela de login via IPC
     if (window.picasso && window.picasso.openLogin) {
@@ -147,11 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Botão Cancelar
+  btnCancelar.addEventListener('click', async () => {
+    try {
+      await fetch('http://localhost:3000/api/scraping/cancelar', { method: 'POST' });
+      adicionarLog('Solicitação de cancelamento enviada...', true);
+      btnCancelar.disabled = true;
+    } catch(e) {
+      adicionarLog('Falha ao enviar cancelamento.', true);
+    }
+  });
+
   function adicionarLog(texto, isError = false) {
+    const ts = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const div = document.createElement('div');
     div.className = 'log-line';
     div.style.color = isError ? '#f87171' : '#38bdf8';
-    div.innerText = `> ${texto}`;
+    div.innerText = `[${ts}] ${texto}`;
     logOutput.appendChild(div);
     // Rolagem automática para baixo
     logOutput.scrollTop = logOutput.scrollHeight;
@@ -171,14 +188,28 @@ document.addEventListener('DOMContentLoaded', () => {
             adicionarLog(`Sincronização concluída! Total Alunos: ${s.total_alunos}`, false);
             clearInterval(syncPollingInterval);
             btnSync.disabled = false;
+            btnCancelar.style.display = 'none';
+            btnCancelar.disabled = false;
             atualizarEstatisticas(s.total_alunos, s.progresso_turmas);
           } else if (s.status === 'erro') {
             adicionarLog(`Erro no scraping: ${s.erro || s.mensagem}`, true);
             clearInterval(syncPollingInterval);
             btnSync.disabled = false;
+            btnCancelar.style.display = 'none';
+            btnCancelar.disabled = false;
+          } else if (s.status === 'cancelado') {
+            adicionarLog('Sincronização cancelada pelo usuário.', true);
+            clearInterval(syncPollingInterval);
+            btnSync.disabled = false;
+            btnCancelar.style.display = 'none';
+            btnCancelar.disabled = false;
           } else {
-            // Removemos a tag [status] para ficar mais limpo
-            adicionarLog(s.mensagem || 'Extraindo...');
+            // Só adiciona se a mensagem for diferente da última (evita duplicatas)
+            const msg = s.mensagem || 'Extraindo...';
+            if (msg !== lastLogMessage) {
+              lastLogMessage = msg;
+              adicionarLog(msg);
+            }
           }
         }
       } catch (err) {
