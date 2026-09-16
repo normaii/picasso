@@ -136,7 +136,7 @@ async function iniciarScraping(cookies) {
         }
 
         if (filterState.action === 'select') {
-          console.log(\`[Scraper] Selecionando filtro \${filterState.id} = \${filterState.val}\`);
+          console.log(`[Scraper] Selecionando filtro ${filterState.id} = ${filterState.val}`);
           await win.webContents.executeJavaScript(`
             document.getElementById('${filterState.id}').value = '${filterState.val}';
             __doPostBack('${filterState.name}', '');
@@ -144,7 +144,7 @@ async function iniciarScraping(cookies) {
           await delay(4000); // Aguarda o PostBack e o reload da página ASP.NET
         } else if (filterState.action === 'done_filters') {
           turmasToScrape = filterState.turmas;
-          console.log(\`[Scraper] Filtros preenchidos! Encontradas \${turmasToScrape.length} turmas para raspar.\`);
+          console.log(`[Scraper] Filtros preenchidos! Encontradas ${turmasToScrape.length} turmas para raspar.`);
           scrapingState = 'SCRAPE_TURMAS';
         } else {
           // wait
@@ -159,8 +159,8 @@ async function iniciarScraping(cookies) {
         }
 
         const turma = turmasToScrape.shift();
-        console.log(\`[Scraper] Raspando Turma: \${turma.text} (\${turma.val}) - Faltam \${turmasToScrape.length}\`);
-        atualizarLogScraping(logId, { mensagem: \`Lendo Turma: \${turma.text}...\` });
+        console.log(`[Scraper] Raspando Turma: ${turma.text} (${turma.val}) - Faltam ${turmasToScrape.length}`);
+        atualizarLogScraping(logId, { mensagem: `Lendo Turma: ${turma.text}...` });
 
         // Selecionar a Turma e clicar em View Report
         await win.webContents.executeJavaScript(`
@@ -205,12 +205,12 @@ async function iniciarScraping(cookies) {
         if (iframeState.error === 'table_not_found') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report.html');
           fs.writeFileSync(debugPath, iframeState.html, 'utf-8');
-          console.log(\`\\n=======================================================\`);
-          console.log(\`[Scraper] A tabela de alunos não foi encontrada na Turma \${turma.text}!\`);
-          console.log(\`[Scraper] Eu salvei o HTML do iframe SSRS neste arquivo:\`);
-          console.log(\`[Scraper] -> \${debugPath}\`);
-          console.log(\`[Scraper] Abra esse arquivo, inspecione a estrutura e me passe!\`);
-          console.log(\`=======================================================\\n\`);
+          console.log(`\n=======================================================`);
+          console.log(`[Scraper] A tabela de alunos não foi encontrada na Turma ${turma.text}!`);
+          console.log(`[Scraper] Eu salvei o HTML do iframe SSRS neste arquivo:`);
+          console.log(`[Scraper] -> ${debugPath}`);
+          console.log(`[Scraper] Abra esse arquivo, inspecione a estrutura e me passe!`);
+          console.log(`=======================================================\n`);
           
           atualizarLogScraping(logId, { status: 'erro', mensagem: 'Tabela de alunos não mapeada. HTML salvo.' });
           scrapingState = 'DONE'; // Interrompe para debug
@@ -218,7 +218,7 @@ async function iniciarScraping(cookies) {
         } else if (iframeState.error) {
           console.log('[Scraper] Erro ao ler iframe:', iframeState.error, iframeState.html);
         } else {
-          console.log(\`[Scraper] Extraídos \${iframeState.alunos.length} alunos da turma \${turma.text}\`);
+          console.log(`[Scraper] Extraídos ${iframeState.alunos.length} alunos da turma ${turma.text}`);
           allAlunos.push(...iframeState.alunos);
         }
       }
@@ -229,7 +229,7 @@ async function iniciarScraping(cookies) {
     }
 
     if (scrapingState === 'DONE' && allAlunos.length > 0) {
-      console.log(\`[Scraper] Finalizado! Total: \${allAlunos.length} alunos.\`);
+      console.log(`[Scraper] Finalizado! Total: ${allAlunos.length} alunos.`);
       atualizarLogScraping(logId, { 
         status: 'concluido', 
         total_alunos: allAlunos.length, 

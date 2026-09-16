@@ -107,22 +107,40 @@ graph TD
 #### [NEW] `picasso/src/scraper/sessionManager.js`
 - Abre janela Electron para login manual
 - Monitora navegação para detectar login bem-sucedido
-- Exporta cookies da sessão para uso no Playwright
+- Exporta cookies da sessão
 
-#### [NEW] `picasso/src/scraper/scraper.js`
-- Orquestrador: recebe cookies → navega ao relatório → extrai alunos → baixa fotos
-- Reporta progresso via eventos
+### 3. Serviço de Scraping e Extração (Automator)
 
-#### [NEW] `picasso/src/scraper/studentListParser.js`
-- Navega ao relatório `RelAlunosMatPTurma`
-- Parseia tabelas HTML: nome, matrícula, turma
-- Lida com paginação se houver
+O sistema do Governo utiliza **Microsoft SQL Server Reporting Services (SSRS)** na página `PageViewer.aspx`. Este sistema é baseado em **ASP.NET WebForms**, o que significa que o estado da página é mantido por `__VIEWSTATE` e cada seleção em um dropdown (Regional, Município, Escola) dispara um `__doPostBack`, recarregando a página. Além disso, o relatório final é renderizado dentro de um `iframe` interno.
 
-#### [NEW] `picasso/src/scraper/photoFetcher.js`
-- Navega para `Alunos.aspx`, busca por matrícula
-- Extrai URL do `img#ct100_cphFormulario_bimgFotoPessoa`
-- Baixa e salva foto em `{DATA_DIR}/fotos/{matricula}.jpg`
-- Usa placeholder para alunos sem foto
+Para automatizar essa extração, o `scraper.js` implementará uma **Máquina de Estados (State Machine)** controlando a `BrowserWindow` invisível:
+
+#### Máquina de Estados de Navegação
+
+1. **Estado `SELECT_FILTERS` (Preenchimento em Cascata)**
+   - O Node.js escuta o evento `did-stop-loading` (ou injeta polling) na página.
+   - O script avalia os dropdowns na seguinte ordem:
+     1. **Regional** (`rptViewer_ctl00_ctl03_ddValue`)
+     2. **Município** (`rptViewer_ctl00_ctl05_ddValue`)
+     3. **Escola** (`rptViewer_ctl00_ctl07_ddValue`)
+     4. **Ano** (`rptViewer_ctl00_ctl09_ddValue`)
+     5. **Semestre** (`rptViewer_ctl00_ctl11_ddValue`)
+   - Se algum dropdown estiver no valor "Selecione..." (`value="1"` ou `value="0"`), o scraper seleciona a primeira opção válida (ex: `value="2"`) e dispara `__doPostBack(ID, '')`. O Node.js aguarda o reload e repete o processo.
+   - Quando todos os dropdowns superiores estiverem preenchidos, o scraper extrai todos os `<option>` válidos do dropdown **Turma** (`rptViewer_ctl00_ctl13_ddValue`) e os salva na memória.
+   - Transição para o Estado `SCRAPE_TURMAS`.
+
+2. **Estado `SCRAPE_TURMAS` (Loop de Extração)**
+   - Para cada turma na lista extraída:
+     - Injeta JS para selecionar a Turma atual no dropdown.
+     - Clica no botão **View Report** (`rptViewer_ctl00_ctl00`).
+     - Inicia um polling aguardando o `iframe` (`ReportFramerptViewer`) ser carregado e o loading do SSRS desaparecer.
+     - Acessa o `contentDocument` do `iframe`.
+     - Executa o seletor CSS (a ser definido após debug do HTML interno) para raspar a tabela de alunos (Nome e Matrícula).
+     - Salva os alunos no banco de dados vinculados à Turma selecionada.
+   - Após iterar todas as turmas, a janela invisível é destruída e o processo de scraping é marcado como Concluído.
+
+#### Fallback de Debug (Ativo Atualmente)
+Como ainda não conhecemos a estrutura HTML interna do relatório gerado pelo SSRS, a primeira execução bem-sucedida do loop de Turmas não encontrará os seletores corretos. Nesse caso, o scraper **salvará o HTML completo do iframe no arquivo `debug_report.html`** e pausará a extração. O usuário enviará este arquivo para mapearmos os seletores finais.
 
 ---
 
