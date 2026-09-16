@@ -282,10 +282,16 @@ async function iniciarScraping(cookies) {
         const iframeState = await win.webContents.executeJavaScript(`
           (() => {
             try {
-              const iframe = document.getElementById('ReportFramerptViewer');
-              if (!iframe || !iframe.contentDocument) return { error: 'iframe_not_found', html: document.body.innerHTML };
+              const iframe = document.getElementById('rptViewer_ReportFrame');
+              if (!iframe) return { error: 'iframe_not_found' };
               
-              const doc = iframe.contentDocument;
+              let doc = iframe.contentDocument;
+              
+              // SSRS carrega o relatório dentro de um sub-frame com id="report"
+              const subFrame = doc.getElementById('report');
+              if (subFrame && subFrame.contentDocument) {
+                doc = subFrame.contentDocument;
+              }
               
               // A estrutura do SSRS muda as classes CSS (a46, a50) a cada execução.
               // Vamos pegar TODAS as TRs e filtrar aquelas cuja 1ª coluna seja uma matrícula (apenas números, mínimo 10 dígitos)
