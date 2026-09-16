@@ -22,17 +22,25 @@
       </div>
       
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-target="view-config">
+        <button class="nav-item active" data-target="view-home">
+          <i class="ph ph-house"></i>
+          <span>Início</span>
+        </button>
+        <button class="nav-item" data-target="view-add">
+          <i class="ph ph-database"></i>
+          <span>Aquisição de Dados (AdD)</span>
+        </button>
+        <button class="nav-item" data-target="view-cdf">
+          <i class="ph ph-camera"></i>
+          <span>Captura de Fotos (CdF)</span>
+        </button>
+        <button class="nav-item" data-target="view-gdi">
+          <i class="ph ph-identification-card"></i>
+          <span>Gerador de Identificação (GdI)</span>
+        </button>
+        <button class="nav-item" data-target="view-config">
           <i class="ph ph-gear"></i>
           <span>Configurações</span>
-        </button>
-        <button class="nav-item" data-target="view-sync">
-          <i class="ph ph-arrows-clockwise"></i>
-          <span>Sincronizar Dados</span>
-        </button>
-        <button class="nav-item" data-target="view-emit">
-          <i class="ph ph-printer"></i>
-          <span>Emissão (PDF)</span>
         </button>
       </nav>
       
@@ -44,8 +52,308 @@
     <!-- Main Content -->
     <main class="main-content">
       
-      <!-- View 1: Configurações -->
-      <section id="view-config" class="view-section active">
+      <!-- ======================================================== -->
+      <!-- View: Início / Landing Home Screen                       -->
+      <!-- ======================================================== -->
+      <section id="view-home" class="view-section active">
+        <div class="view-header">
+          <h2>Painel de Controle</h2>
+          <p>Conecte-se ao Conexão Educação para habilitar a extração e gerencie os fluxos do sistema.</p>
+        </div>
+
+        <!-- 1. Card de Autenticação / Conexão -->
+        <div class="card-glass" id="card-auth-container">
+          <!-- Estado Desconectado -->
+          <div id="auth-state-disconnected" class="auth-box text-center">
+            <div class="auth-icon-circle disconnected">
+              <i class="ph ph-lock-key"></i>
+            </div>
+            <h3 class="auth-title">Autenticação no Conexão Educação</h3>
+            <p class="auth-desc">
+              Para acessar dados de alunos e fotos, é necessário autenticar sua sessão. O login é feito manualmente na janela oficial com resolução do CAPTCHA.
+            </p>
+            <button id="btn-home-login" class="btn btn-large btn-primary">
+              <i class="ph ph-sign-in"></i> Conectar ao Conexão Educação
+            </button>
+          </div>
+
+          <!-- Estado Conectado (sucesso) -->
+          <div id="auth-state-connected" class="auth-box text-center" style="display: none;">
+            <div class="auth-icon-circle connected">
+              <i class="ph ph-check-circle"></i>
+            </div>
+            <h3 class="auth-title" style="color: #059669;">Login efetuado com Sucesso!</h3>
+            <p class="auth-desc" style="color: #334155;">
+              Sessão autenticada e cookies capturados. Todos os módulos operacionais estão autorizados para acesso aos dados da SEEDUC.
+            </p>
+            <div class="session-badge-container">
+              <span class="session-badge"><i class="ph ph-shield-check"></i> Sessão Ativa</span>
+              <span class="session-time" id="session-login-time">Conectado agora</span>
+            </div>
+            <div class="mt-2">
+              <button id="btn-home-relogin" class="btn btn-outline">
+                <i class="ph ph-arrows-clockwise"></i> Reconectar / Trocar Usuário
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Grid de Disponibilidade dos Módulos -->
+        <div class="modules-overview-grid mt-4">
+          <!-- Card AdD -->
+          <div class="card-glass module-card" id="card-module-add">
+            <div class="module-card-header">
+              <div class="module-icon"><i class="ph ph-database"></i></div>
+              <div>
+                <h4>Aquisição de Dados (AdD)</h4>
+                <span class="module-subtitle">Varredura de Turmas e Alunos</span>
+              </div>
+              <span class="badge-status pending" id="badge-add-status">Requer Login</span>
+            </div>
+            <p class="module-card-desc">
+              Importa a listagem completa de alunos matriculados e estrutura de turmas a partir do relatório SSRS.
+            </p>
+            <div class="module-card-footer">
+              <span class="module-meta" id="home-stat-alunos">0 alunos cadastrados</span>
+              <button class="btn btn-sm btn-outline btn-navigate" data-target="view-add">
+                Acessar AdD <i class="ph ph-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Card CdF -->
+          <div class="card-glass module-card" id="card-module-cdf">
+            <div class="module-card-header">
+              <div class="module-icon"><i class="ph ph-camera"></i></div>
+              <div>
+                <h4>Captura de Fotos (CdF)</h4>
+                <span class="module-subtitle">Fotos Oficiais dos Alunos</span>
+              </div>
+              <span class="badge-status unavailable" id="badge-cdf-status">Indisponível</span>
+            </div>
+            <p class="module-card-desc">
+              Localiza e faz o download das fotos dos alunos no cadastro individual ou aplica o avatar padrão do sistema.
+            </p>
+            <div class="module-card-footer">
+              <span class="module-meta" id="home-stat-fotos">0 fotos salvas</span>
+              <button class="btn btn-sm btn-outline btn-navigate" data-target="view-cdf" id="btn-nav-cdf">
+                Acessar CdF <i class="ph ph-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Card de Sincronização Geral -->
+        <div class="card-glass mt-4 text-center">
+          <div class="sync-geral-header">
+            <i class="ph ph-lightning sync-geral-icon"></i>
+            <div>
+              <h3 style="font-size: 20px; font-weight: 700; color: var(--primary-dark);">Sincronização Geral (AdD + CdF)</h3>
+              <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">
+                Executa o pipeline completo: atualiza a lista de alunos de todas as turmas e, em seguida, baixa todas as fotos pendentes.
+              </p>
+            </div>
+          </div>
+
+          <!-- Estimativa de Tempo / Alerta -->
+          <div class="sync-estimate-container" id="sync-estimate-container">
+            <div id="estimate-not-recommended" class="alert-estimate alert-danger" style="display: none;">
+              <i class="ph ph-warning-octagon"></i>
+              <span>Tempo estimado desconhecido: <strong>Não recomendado</strong> executar sincronização geral sem histórico prévio. Recomendamos executar primeiro o módulo AdD isoladamente.</span>
+            </div>
+            <div id="estimate-available" class="alert-estimate alert-info" style="display: none;">
+              <i class="ph ph-clock"></i>
+              <span id="estimate-text">Tempo estimado com base na última sincronização: ~X min</span>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <button id="btn-sync-geral" class="btn btn-large btn-primary" disabled>
+              <i class="ph ph-play"></i> Iniciar Sincronização Geral
+            </button>
+            <button id="btn-cancel-sync-geral" class="btn btn-large" style="display: none; background: #dc2626; color: #fff; margin-left: 1rem;">
+              <i class="ph ph-stop"></i> Cancelar Processo
+            </button>
+          </div>
+
+          <!-- Progresso da Sincronização Geral -->
+          <div id="sync-geral-progress-container" style="display: none; max-width: 650px; margin: 1.5rem auto 0 auto;">
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
+              <span id="sync-geral-phase-text">Fase: Aguardando...</span>
+              <span id="sync-geral-pct-text">0%</span>
+            </div>
+            <div style="background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+              <div id="sync-geral-progress-bar" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Terminal de Log da Home -->
+          <div class="terminal-container mt-4" id="log-home-container" style="display: none; text-align: left;">
+            <div class="terminal-header">
+              <span id="log-home-header">Console da Sincronização Geral</span>
+            </div>
+            <div class="terminal-body" id="log-home-output">
+              <div class="log-line">> Aguardando início do pipeline...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- View: Aquisição de Dados (AdD)                           -->
+      <!-- ======================================================== -->
+      <section id="view-add" class="view-section">
+        <div class="view-header">
+          <h2>Módulo de Aquisição de Dados (AdD)</h2>
+          <p>Importe turmas e alunos diretamente do relatório oficial do Conexão Educação.</p>
+        </div>
+        
+        <div class="card-glass text-center">
+          <i class="ph ph-database sync-icon"></i>
+          <h3 class="sync-title">Base de Alunos e Turmas</h3>
+          
+          <div class="stats-container">
+            <div class="stat-box">
+              <span class="stat-value" id="stat-total-alunos">0</span>
+              <span class="stat-label">Alunos Cadastrados</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="stat-total-turmas">0</span>
+              <span class="stat-label">Turmas Mapeadas</span>
+            </div>
+          </div>
+          
+          <p class="sync-desc">
+            Executa a extração em lote do relatório de matrículas por turma via SSRS. Certifique-se de que a sessão no Conexão Educação está conectada na tela inicial.
+          </p>
+          
+          <button id="btn-iniciar-sync" class="btn btn-large btn-primary mt-4">
+            <i class="ph ph-play"></i> Iniciar Importação (AdD)
+          </button>
+          <button id="btn-cancelar-sync" class="btn btn-large mt-4" style="display: none; background: #dc2626; color: #fff; margin-left: 1rem;">
+            <i class="ph ph-stop"></i> Cancelar
+          </button>
+        </div>
+
+        <div class="terminal-container mt-4" id="log-container" style="display: none;">
+          <div class="terminal-header">
+            <span>Registro da Aquisição de Dados...</span>
+          </div>
+          <div class="terminal-body" id="log-output">
+            <div class="log-line">> Aguardando inicialização...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- View: Captura de Fotos (CdF)                             -->
+      <!-- ======================================================== -->
+      <section id="view-cdf" class="view-section">
+        <div class="view-header">
+          <h2>Módulo de Captura de Fotos (CdF)</h2>
+          <p>Localização e download das fotos dos alunos a partir da página Alunos.aspx.</p>
+        </div>
+
+        <div class="card-glass text-center">
+          <i class="ph ph-camera sync-icon"></i>
+          <h3 class="sync-title">Fotos dos Alunos</h3>
+          
+          <div class="stats-container">
+            <div class="stat-box">
+              <span class="stat-value" id="stat-foto-com" style="color: #10b981;">0</span>
+              <span class="stat-label">Com Foto</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="stat-foto-sem" style="color: #64748b;">0</span>
+              <span class="stat-label">Sem Foto (Avatar)</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="stat-foto-pendentes" style="color: #f59e0b;">0</span>
+              <span class="stat-label">Pendentes</span>
+            </div>
+          </div>
+          
+          <p class="sync-desc">
+            Baixe as fotos dos alunos já cadastrados. Você pode selecionar uma turma específica para maior agilidade ou processar todas.
+          </p>
+
+          <div class="control-row">
+            <div class="control-item">
+              <label for="select-turma-fotos"><i class="ph ph-users-three"></i> Filtrar por Turma:</label>
+              <select id="select-turma-fotos" class="form-select">
+                <option value="TODAS">Todas as Turmas (Completo)</option>
+              </select>
+            </div>
+            <div class="control-item">
+              <label for="select-concurrency-fotos"><i class="ph ph-lightning"></i> Velocidade (Paralelismo):</label>
+              <select id="select-concurrency-fotos" class="form-select">
+                <option value="1">1 Janela (Sequencial / Diagnóstico)</option>
+                <option value="2" selected>2 Janelas Simultâneas (Recomendado)</option>
+                <option value="3">3 Janelas Simultâneas (Turbo)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="progress-fotos-container" style="display: none; max-width: 600px; margin: 1.5rem auto 0 auto;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; font-weight: 600;">
+              <span id="progress-fotos-text">Processando fotos: 0 / 0</span>
+              <span id="progress-fotos-pct">0%</span>
+            </div>
+            <div style="background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+              <div id="progress-fotos-bar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <button id="btn-iniciar-fotos" class="btn btn-large btn-primary">
+              <i class="ph ph-camera"></i> Baixar Fotos (CdF)
+            </button>
+            <button id="btn-cancelar-fotos" class="btn btn-large" style="display: none; background: #dc2626; color: #fff; margin-left: 1rem;">
+              <i class="ph ph-stop"></i> Cancelar Download
+            </button>
+          </div>
+        </div>
+
+        <div class="terminal-container mt-4" id="log-fotos-container" style="display: none;">
+          <div class="terminal-header">
+            <span id="log-fotos-header">Download de Fotos em andamento...</span>
+          </div>
+          <div class="terminal-body" id="log-fotos-output">
+            <div class="log-line">> Aguardando inicialização...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- View: Gerador de Identificação (GdI)                     -->
+      <!-- ======================================================== -->
+      <section id="view-gdi" class="view-section">
+        <div class="view-header">
+          <h2>Gerador de Identificação (GdI)</h2>
+          <p>Selecione a turma desejada para gerar o PDF pronto para impressão.</p>
+        </div>
+        
+        <div class="card-glass">
+          <div class="turmas-grid" id="grid-turmas">
+            <div style="grid-column: 1/-1; text-align: center; color: #7f8c8d; padding: 2rem;">
+              Carregando turmas...
+            </div>
+          </div>
+        </div>
+
+        <!-- Status de Geração -->
+        <div class="status-banner mt-4" id="pdf-status-banner" style="display: none;">
+          <div class="spinner"></div>
+          <span id="pdf-status-text">Gerando PDF para a turma...</span>
+        </div>
+        <!-- Status Sucesso/Erro -->
+        <div class="alert mt-4" id="pdf-alert-banner" style="display: none;"></div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- View: Configurações (Ao final do Menu)                   -->
+      <!-- ======================================================== -->
+      <section id="view-config" class="view-section">
         <div class="view-header">
           <h2>Configurações da Escola</h2>
           <p>Personalize os dados que aparecerão impressos nas carteirinhas.</p>
@@ -83,77 +391,6 @@
             </div>
           </div>
         </div>
-      </section>
-      
-      <!-- View 2: Sincronização / Scraping -->
-      <section id="view-sync" class="view-section">
-        <div class="view-header">
-          <h2>Sincronização de Dados</h2>
-          <p>Importe os alunos diretamente do sistema Conexão Educação.</p>
-        </div>
-        
-        <div class="card-glass text-center">
-          <i class="ph ph-cloud-arrow-down sync-icon"></i>
-          <h3 class="sync-title">Base de Alunos</h3>
-          
-          <!-- Estatísticas Atuais -->
-          <div class="stats-container">
-            <div class="stat-box">
-              <span class="stat-value" id="stat-total-alunos">0</span>
-              <span class="stat-label">Alunos Cadastrados</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-value" id="stat-total-turmas">0</span>
-              <span class="stat-label">Turmas</span>
-            </div>
-          </div>
-          
-          <p class="sync-desc">
-            Para atualizar, clique abaixo. Uma janela do Conexão Educação se abrirá para que você faça o <b>Login Manualmente</b>. Após logar, o sistema fará a extração em background.
-          </p>
-          
-          <button id="btn-iniciar-sync" class="btn btn-large btn-primary mt-4">
-            <i class="ph ph-play"></i> Iniciar Sincronização
-          </button>
-          <button id="btn-cancelar-sync" class="btn btn-large mt-4" style="display: none; background: #dc2626; color: #fff; margin-left: 1rem;">
-            <i class="ph ph-stop"></i> Cancelar
-          </button>
-        </div>
-
-        <!-- Terminal de Log -->
-        <div class="terminal-container mt-4" id="log-container" style="display: none;">
-          <div class="terminal-header">
-            <span>Processo em andamento...</span>
-          </div>
-          <div class="terminal-body" id="log-output">
-            <div class="log-line">> Aguardando inicialização...</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- View 3: Emissão -->
-      <section id="view-emit" class="view-section">
-        <div class="view-header">
-          <h2>Emissão de Carteirinhas</h2>
-          <p>Selecione a turma desejada para gerar o PDF pronto para impressão.</p>
-        </div>
-        
-        <div class="card-glass">
-          <div class="turmas-grid" id="grid-turmas">
-            <!-- Os cards de turma serão injetados via JS -->
-            <div style="grid-column: 1/-1; text-align: center; color: #7f8c8d; padding: 2rem;">
-              Carregando turmas...
-            </div>
-          </div>
-        </div>
-
-        <!-- Status de Geração -->
-        <div class="status-banner mt-4" id="pdf-status-banner" style="display: none;">
-          <div class="spinner"></div>
-          <span id="pdf-status-text">Gerando PDF para a turma...</span>
-        </div>
-        <!-- Status Sucesso/Erro -->
-        <div class="alert mt-4" id="pdf-alert-banner" style="display: none;"></div>
       </section>
 
     </main>

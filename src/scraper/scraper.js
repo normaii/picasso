@@ -439,15 +439,13 @@ async function iniciarScraping(cookies) {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
           log(`═══════════════════════════════════════`);
-          log(`A tabela de alunos não foi encontrada na Turma ${currentTurma.text}!`);
+          log(`A tabela de alunos não foi encontrada na Turma ${currentTurma.text}! Pulando para a próxima...`);
           log(`Iframe encontrado: ${iframeState.foundId}`);
-          log(`HTML de debug salvo em: ${debugPath}`);
-          log(`Abra esse arquivo, inspecione a estrutura e me passe!`);
           log(`═══════════════════════════════════════`);
           
-          atualizarLogScraping(logId, { status: 'erro', mensagem: `Tabela de alunos não encontrada. HTML salvo para debug.` });
-          scrapingState = 'DONE';
-          break;
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Turma ${currentTurma.text} sem tabela de alunos. Pulando.` });
+          scrapingState = 'SCRAPE_TURMA';
+          continue;
         } else if (iframeState.error) {
           iframeRetries++;
           if (iframeRetries <= 3 || iframeRetries % 5 === 0) {
