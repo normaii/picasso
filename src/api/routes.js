@@ -119,7 +119,7 @@ router.post('/gerar', async (req, res) => {
 // Scraping
 // ============================================================
 
-const { iniciarScraping } = require('../scraper/scraper');
+const { iniciarScraping, requestCancel } = require('../scraper/scraper');
 
 /**
  * POST /api/scraping/iniciar
@@ -143,6 +143,19 @@ router.post('/scraping/iniciar', async (req, res) => {
   } catch (error) {
     console.error('[API] Erro ao iniciar scraping:', error.message);
     res.status(500).json({ erro: 'Erro ao iniciar scraping.' });
+  }
+});
+
+/**
+ * POST /api/scraping/cancelar
+ * Cancela a operação de scraping em andamento.
+ */
+router.post('/scraping/cancelar', (req, res) => {
+  try {
+    requestCancel();
+    res.json({ mensagem: 'Cancelamento solicitado.' });
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao cancelar.' });
   }
 });
 

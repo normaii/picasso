@@ -28,6 +28,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-016](#adr-016) | Política de Atualização do Runtime (Node.js LTS) | ✅ Aceito | 2026-09-12 |
 | [ADR-017](#adr-017) | Mecanismo Passivo de Atualização (Update Checker) | ✅ Aceito | 2026-09-12 |
 | [ADR-018](#adr-018) | Pipeline de Auto-Bumping e Pre-Releases | ✅ Aceito | 2026-09-12 |
+| [ADR-019](#adr-019) | Interface Amigável de Importação | 🔮 Proposto (Futuro) | 2026-09-16 |
 
 ---
 
@@ -354,6 +355,22 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 **Justificativa**: Garante *Continuous Delivery* sem quebrar o funil de qualidade (QA) e elimina intervenção manual no Git.
 
+## ADR-019
+### Interface Amigável de Importação
+
+**Status**: 🔮 Proposto (Planejado para versão futura) — 2026-09-16
+
+**Contexto**: Atualmente, na fase Alpha, a extração de turmas e alunos ocorre em segundo plano com logs técnicos estilo terminal no console, enquanto a UI da aplicação não dá feedback visual detalhado do progresso, apenas um aviso de sincronização finalizada ou erro.
+
+**Decisão**: Substituir o fluxo invisível/terminal por uma Interface de Importação amigável. A tela deverá exibir etapas claras (ex: "Obtendo turmas...", "Enriquecendo dados..."), acompanhada de uma **barra de progresso** baseada no total de turmas extraídas e relatórios de erro mais humanos e tratáveis, deixando claro onde o sistema falhou (se falhar).
+
+**Justificativa**: Diretores de escola não estão acostumados com interfaces de linha de comando. Fornecer feedback visual em tempo real aumenta a confiança no sistema de que a extração não "travou", reduzindo fechamentos prematuros do app e chamados de suporte.
+
+**Consequências**:
+- O `scraper.js` deverá emitir eventos IPC frequentes de status e progresso.
+- O Frontend precisará construir componentes de loading/progresso dinâmicos.
+- Para a versão atual (Alpha), será mantido o modelo atual baseado em logs para priorizar o fechamento da engenharia de raspagem.
+
 ---
 
 ## Histórico de Alterações
@@ -368,3 +385,4 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-016 (Política do Runtime Node.js LTS). |
 | 2026-09-12 | Adicionado ADR-017 (Update Checker Passivo). |
 | 2026-09-12 | Adicionado ADR-018 (Auto-Bumping e Pre-Releases). |
+| 2026-09-16 | Adicionado ADR-019 (Interface Amigável de Importação). |
