@@ -177,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(syncPollingInterval);
             btnSync.disabled = false;
           } else {
-            // Qualquer outro status (processando, navegando, extraindo...)
-            adicionarLog(`[${s.status}] ${s.mensagem || 'Extraindo...'}`);
+            // Removemos a tag [status] para ficar mais limpo
+            adicionarLog(s.mensagem || 'Extraindo...');
           }
         }
       } catch (err) {

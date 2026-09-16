@@ -74,9 +74,13 @@ function openLoginWindow() {
 
   loginWindow.loadURL(systemUrl);
 
-  // Monitora navegação apenas para debug no console
+  // Monitora navegação para detectar login com sucesso e auto-fechar a janela
   loginWindow.webContents.on('did-navigate', async (event, url) => {
     console.log('[LoginWindow] Navigated to:', url);
+    if (url.includes('Menu/Escolar.aspx') || url.includes('MenuRelatorio.aspx')) {
+      console.log('[LoginWindow] Login detectado com sucesso! Fechando janela automaticamente...');
+      loginWindow.close();
+    }
   });
 
   // Quando o usuário fechar a janela (após fazer login manualmente), capturamos a sessão
