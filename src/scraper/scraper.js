@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 const { criarLogScraping, atualizarLogScraping, upsertAlunosBatch } = require('../db/database');
 
-// Vamos definir a URL base e caminhos
 const BASE_URL = process.env.SYSTEM_URL || 'https://conexao.educacao.rj.gov.br';
 
 function delay(ms) {
@@ -14,9 +13,29 @@ function delay(ms) {
 }
 
 /**
- * Inicia o processo de scraping de forma invisível.
- * @param {Array} cookies Cookies capturados na janela de login
+ * Helper para rodar JS no contexto da página e injetar no log.
+ * Adicionamos um validador do ciclo de vida do ASP.NET AJAX.
  */
+async function waitAspNetReady(win) {
+  let retries = 0;
+  while (retries < 20) {
+    const isReady = await win.webContents.executeJavaScript(`
+      (() => {
+        try {
+          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+            return !Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack();
+          }
+          return true; // Se não tem Sys.WebForms, considera pronto
+        } catch(e) { return true; }
+      })();
+    `);
+    if (isReady) return true;
+    await delay(1000);
+    retries++;
+  }
+  return false;
+}
+
 async function iniciarScraping(cookies) {
   const logId = criarLogScraping();
   let win = null;
@@ -25,38 +44,50 @@ async function iniciarScraping(cookies) {
     console.log('[Scraper] Iniciando scraping com BrowserWindow invisível...');
     
     win = new BrowserWindow({
-      show: false, // invisível!
+      show: false, // invisível
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true
       }
     });
 
-    // 1. Cookies não precisam ser injetados manualmente.
-    // Como a janela invisível usa a defaultSession, ela já herda
-    // a sessão autenticada da janela de login automaticamente.
+    // Como a janela usa a defaultSession, não precisamos reinjetar cookies
+    // (ADR-015/019 e mitigação do bug do ASP.NET Session)
 
     atualizarLogScraping(logId, { status: 'navegando_relatorio', mensagem: 'Acessando relatório de alunos...' });
-
-    // 2. Navegar para a URL do Relatório
+    
     const reportUrl = `${BASE_URL}/ConexaoEducacao/Relatorio/PageViewer.aspx?report=RelAlunosMatPTurma&grp=GESTAO`;
     await win.loadURL(reportUrl);
     
     await delay(5000); 
 
-    let scrapingState = 'SELECT_FILTERS';
-    let turmasToScrape = [];
-    let allAlunos = [];
-    let waitRetries = 0;
+    let scrapingState = 'SETUP_FILTERS';
     
-    atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Preenchendo filtros de pesquisa (Regional, Escola, etc)...' });
+    let semestresToScrape = [];
+    let currentSemestre = null;
+    let turmasToScrape = [];
+    let currentTurma = null;
+    let allAlunos = [];
+    
+    let stateRetries = 0;
 
-    // 3. Loop da Máquina de Estados
+    atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Aguardando inicialização da página...' });
+
+    // ----------------------------------------------------
+    // Loop Principal da Máquina de Estados
+    // ----------------------------------------------------
     while (scrapingState !== 'DONE') {
       
-      if (scrapingState === 'SELECT_FILTERS') {
-        // Checamos o estado atual da página
-        const filterState = await win.webContents.executeJavaScript(`
+      // Sempre espera o ASP.NET terminar os processamentos assíncronos (UpdatePanel) antes de agir
+      const ready = await waitAspNetReady(win);
+      if (!ready) {
+        console.log('[Scraper] TIMEOUT! ASP.NET preso em isInAsyncPostBack.');
+        atualizarLogScraping(logId, { status: 'erro', mensagem: 'Servidor demorou muito a responder (Timeout ASP.NET).' });
+        break;
+      }
+
+      if (scrapingState === 'SETUP_FILTERS') {
+        const setupState = await win.webContents.executeJavaScript(`
           (() => {
             try {
               const getVal = id => { const el = document.getElementById(id); return el ? el.value : null; };
@@ -66,117 +97,156 @@ async function iniciarScraping(cookies) {
                 return Array.from(el.options).map(o => ({val: o.value, text: o.text}));
               };
               
-              const reg = getVal('rptViewer_ctl00_ctl03_ddValue');
-              const mun = getVal('rptViewer_ctl00_ctl05_ddValue');
-              const esc = getVal('rptViewer_ctl00_ctl07_ddValue');
-              const ano = getVal('rptViewer_ctl00_ctl09_ddValue');
-              const sem = getVal('rptViewer_ctl00_ctl11_ddValue');
-              const turma = getVal('rptViewer_ctl00_ctl13_ddValue');
+              const needsSel = (v) => !v || v === '0' || v === '1' || String(v).includes('Select') || String(v).includes('Selecione');
               
-              const needsSelection = (val) => !val || val === '0' || val === '1' || String(val).includes('Select a Value') || String(val).includes('Selecione');
-              
-              const pickFirstValid = (opts) => {
-                const valid = opts.find(o => !needsSelection(o.val));
+              const pickFirst = (opts) => {
+                const valid = opts.find(o => !needsSel(o.val));
                 return valid ? valid.val : null;
               };
 
-              // Tentar selecionar do topo para a base
-              if (needsSelection(reg)) {
-                const opts = getOpts('rptViewer_ctl00_ctl03_ddValue');
-                const val = pickFirstValid(opts);
-                if (val) return { action: 'select', id: 'rptViewer_ctl00_ctl03_ddValue', name: 'rptViewer$ctl00$ctl03$ddValue', val };
-              }
-              if (needsSelection(mun)) {
-                const opts = getOpts('rptViewer_ctl00_ctl05_ddValue');
-                const val = pickFirstValid(opts);
-                if (val) return { action: 'select', id: 'rptViewer_ctl00_ctl05_ddValue', name: 'rptViewer$ctl00$ctl05$ddValue', val };
-              }
-              if (needsSelection(esc)) {
-                const opts = getOpts('rptViewer_ctl00_ctl07_ddValue');
-                const val = pickFirstValid(opts);
-                if (val) return { action: 'select', id: 'rptViewer_ctl00_ctl07_ddValue', name: 'rptViewer$ctl00$ctl07$ddValue', val };
-              }
-              if (needsSelection(ano)) {
-                const opts = getOpts('rptViewer_ctl00_ctl09_ddValue');
-                const val = pickFirstValid(opts);
-                if (val) return { action: 'select', id: 'rptViewer_ctl00_ctl09_ddValue', name: 'rptViewer$ctl00$ctl09$ddValue', val };
-              }
-              if (needsSelection(sem)) {
-                const opts = getOpts('rptViewer_ctl00_ctl11_ddValue');
-                const val = pickFirstValid(opts);
-                if (val) return { action: 'select', id: 'rptViewer_ctl00_ctl11_ddValue', name: 'rptViewer$ctl00$ctl11$ddValue', val };
-              }
-              
-              // Se todos os de cima estão selecionados e a Turma tem opções válidas
-              const turmaOpts = getOpts('rptViewer_ctl00_ctl13_ddValue').filter(o => !needsSelection(o.val));
-              if (turmaOpts.length > 0) {
-                return { action: 'done_filters', turmas: turmaOpts };
-              }
+              // IDs dos dropdowns
+              const regId = 'rptViewer_ctl00_ctl03_ddValue';
+              const munId = 'rptViewer_ctl00_ctl05_ddValue';
+              const escId = 'rptViewer_ctl00_ctl07_ddValue';
+              const anoId = 'rptViewer_ctl00_ctl09_ddValue';
 
-              return { action: 'wait', html_length: document.body.innerHTML.length }; // Talvez ainda esteja carregando
+              if (needsSel(getVal(regId))) return { action: 'select', id: regId, val: pickFirst(getOpts(regId)) };
+              if (needsSel(getVal(munId))) return { action: 'select', id: munId, val: pickFirst(getOpts(munId)) };
+              if (needsSel(getVal(escId))) return { action: 'select', id: escId, val: pickFirst(getOpts(escId)) };
+              if (needsSel(getVal(anoId))) return { action: 'select', id: anoId, val: pickFirst(getOpts(anoId)) };
+              
+              return { action: 'done' };
             } catch (e) {
-              return { error: e.message, html_length: 0 };
+              return { error: e.message };
             }
           })();
         `);
 
-        if (filterState.error) {
-          throw new Error('Erro ao injetar script de filtros: ' + filterState.error);
+        if (setupState.error) {
+          throw new Error('Erro injetando scripts de setup: ' + setupState.error);
         }
 
-        if (filterState.action === 'select') {
-          waitRetries = 0;
-          console.log(`[Scraper] Selecionando filtro ${filterState.id} = ${filterState.val}`);
-          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Preenchendo: ${filterState.id}` });
-          await win.webContents.executeJavaScript(`
-            document.getElementById('${filterState.id}').value = '${filterState.val}';
-            __doPostBack('${filterState.name}', '');
-          `);
-          await delay(4000); // Aguarda o PostBack e o reload da página ASP.NET
-        } else if (filterState.action === 'done_filters') {
-          waitRetries = 0;
-          turmasToScrape = filterState.turmas;
-          console.log(`[Scraper] Filtros preenchidos! Encontradas ${turmasToScrape.length} turmas para raspar.`);
-          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Turmas encontradas: ${turmasToScrape.length}. Iniciando...` });
-          scrapingState = 'SCRAPE_TURMAS';
-        } else {
-          // wait
-          waitRetries++;
-          console.log(`[Scraper] Aguardando elementos da página carregarem (tentativa ${waitRetries}/15)... HTML Length: ${filterState.html_length}`);
-          
-          if (waitRetries > 15) {
-            const htmlCompleto = await win.webContents.executeJavaScript('document.body.innerHTML');
-            const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_main.html');
-            fs.writeFileSync(debugPath, htmlCompleto, 'utf-8');
-            console.log(`\n[Scraper] TIMEOUT! Os filtros não apareceram na página pai. HTML salvo em: ${debugPath}`);
-            atualizarLogScraping(logId, { status: 'erro', mensagem: 'Timeout ao aguardar carregamento dos filtros (SSRS).' });
-            scrapingState = 'DONE';
-            break;
+        if (setupState.action === 'select') {
+          if (!setupState.val) {
+            stateRetries++;
+            if (stateRetries > 5) throw new Error(`Não foi possível achar opção válida para o filtro ${setupState.id}.`);
+            await delay(1500);
+            continue;
           }
-          await delay(2000);
+          stateRetries = 0;
+          
+          console.log(`[Scraper] Preenchendo filtro base: ${setupState.id} = ${setupState.val}`);
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Preenchendo: ${setupState.id}` });
+          
+          // Dispara o 'change' via DOM, simulando o usuário perfeitamente sem chamar __doPostBack à mão.
+          await win.webContents.executeJavaScript(`
+            (() => {
+              const el = document.getElementById('${setupState.id}');
+              el.value = '${setupState.val}';
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            })();
+          `);
+          await delay(1000); // pequeno delay só pra dar tempo do Sys.WebForms registrar o postback
+        } else if (setupState.action === 'done') {
+          console.log('[Scraper] Filtros base preenchidos. Indo capturar semestres...');
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Filtros base configurados. Mapeando semestres...` });
+          scrapingState = 'FETCH_SEMESTRES';
         }
       } 
       
-      else if (scrapingState === 'SCRAPE_TURMAS') {
-        if (turmasToScrape.length === 0) {
-          scrapingState = 'DONE';
-          break;
-        }
-
-        const turma = turmasToScrape.shift();
-        console.log(`[Scraper] Raspando Turma: ${turma.text} (${turma.val}) - Faltam ${turmasToScrape.length}`);
-        atualizarLogScraping(logId, { mensagem: `Lendo Turma: ${turma.text}...` });
-
-        // Selecionar a Turma e clicar em View Report
-        await win.webContents.executeJavaScript(`
-          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${turma.val}';
-          document.getElementById('rptViewer_ctl00_ctl00').click();
+      else if (scrapingState === 'FETCH_SEMESTRES') {
+        const fetchSem = await win.webContents.executeJavaScript(`
+          (() => {
+            const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
+            if (!el) return { error: 'Dropdown semestre não encontrado.' };
+            const needsSel = (v) => !v || v === '0' || String(v).includes('Select') || String(v).includes('Selecione');
+            const opts = Array.from(el.options)
+                              .filter(o => !needsSel(o.value))
+                              .map(o => ({ val: o.value, text: o.text }));
+            return { sems: opts };
+          })();
         `);
 
-        // Aguardar o carregamento do relatório. SSRS demora um pouquinho para renderizar o iframe
-        await delay(6000);
+        if (fetchSem.error) throw new Error(fetchSem.error);
+        
+        semestresToScrape = fetchSem.sems;
+        console.log(`[Scraper] Encontrados ${semestresToScrape.length} semestres válidos.`);
+        scrapingState = 'SELECT_SEMESTRE';
+      }
 
-        // Ler o iframe
+      else if (scrapingState === 'SELECT_SEMESTRE') {
+        if (semestresToScrape.length === 0) {
+          scrapingState = 'DONE';
+          continue;
+        }
+
+        currentSemestre = semestresToScrape.shift();
+        console.log(`[Scraper] =======================================`);
+        console.log(`[Scraper] Selecionando Semestre: ${currentSemestre.text}`);
+        atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Analisando Semestre: ${currentSemestre.text}` });
+
+        await win.webContents.executeJavaScript(`
+          (() => {
+            const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
+            el.value = '${currentSemestre.val}';
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          })();
+        `);
+        await delay(1000);
+        scrapingState = 'FETCH_TURMAS';
+      }
+
+      else if (scrapingState === 'FETCH_TURMAS') {
+        const fetchTur = await win.webContents.executeJavaScript(`
+          (() => {
+            const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+            if (!el) return { error: 'Dropdown turma não encontrado.' };
+            const needsSel = (v) => !v || v === '0' || String(v).includes('Select') || String(v).includes('Selecione');
+            const opts = Array.from(el.options)
+                              .filter(o => !needsSel(o.value))
+                              .map(o => ({ val: o.value, text: o.text }));
+            return { turmas: opts };
+          })();
+        `);
+        
+        if (fetchTur.error) throw new Error(fetchTur.error);
+
+        turmasToScrape = fetchTur.turmas;
+        if (turmasToScrape.length === 0) {
+          console.log(`[Scraper] Semestre ${currentSemestre.text} não possui turmas. Indo para o próximo...`);
+          scrapingState = 'SELECT_SEMESTRE';
+        } else {
+          console.log(`[Scraper] Semestre ${currentSemestre.text} tem ${turmasToScrape.length} turmas mapeadas.`);
+          scrapingState = 'SCRAPE_TURMA';
+        }
+      }
+
+      else if (scrapingState === 'SCRAPE_TURMA') {
+        if (turmasToScrape.length === 0) {
+          console.log(`[Scraper] Turmas do semestre esgotadas. Voltando para semestres...`);
+          scrapingState = 'SELECT_SEMESTRE';
+          continue;
+        }
+
+        currentTurma = turmasToScrape.shift();
+        console.log(`[Scraper] >> Raspando Turma: ${currentTurma.text} (Faltam ${turmasToScrape.length} neste semestre)`);
+        atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Extraindo alunos da turma: ${currentTurma.text}` });
+
+        // Seleciona a turma, mas NÃO dispara 'change' pq isso não recarrega o form principal.
+        // O SSRS exige clicar no 'View Report' (rptViewer_ctl00_ctl00)
+        await win.webContents.executeJavaScript(`
+          (() => {
+            document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${currentTurma.val}';
+            document.getElementById('rptViewer_ctl00_ctl00').click();
+          })();
+        `);
+        
+        // Iframe load is separate from PageRequestManager.
+        await delay(5000); 
+        scrapingState = 'WAIT_IFRAME_REPORT';
+      }
+
+      else if (scrapingState === 'WAIT_IFRAME_REPORT') {
         const iframeState = await win.webContents.executeJavaScript(`
           (() => {
             try {
@@ -195,9 +265,8 @@ async function iniciarScraping(cookies) {
               trs.forEach(tr => {
                 const nome = tr.querySelector('.nome')?.innerText.trim();
                 const matricula = tr.querySelector('.matricula')?.innerText.trim();
-                const turma_nome = tr.querySelector('.turma')?.innerText.trim();
                 if (nome && matricula) {
-                  alunos.push({ nome, matricula, turma_nome: turma_nome || '${turma.text}' });
+                  alunos.push({ nome, matricula, turma_nome: '${currentTurma.text}' });
                 }
               });
               return { error: null, alunos };
@@ -208,42 +277,51 @@ async function iniciarScraping(cookies) {
         `);
 
         if (iframeState.error === 'table_not_found') {
-          const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report.html');
+          const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html, 'utf-8');
           console.log(`\n=======================================================`);
-          console.log(`[Scraper] A tabela de alunos não foi encontrada na Turma ${turma.text}!`);
+          console.log(`[Scraper] A tabela de alunos não foi encontrada na Turma ${currentTurma.text}!`);
           console.log(`[Scraper] Eu salvei o HTML do iframe SSRS neste arquivo:`);
           console.log(`[Scraper] -> ${debugPath}`);
           console.log(`[Scraper] Abra esse arquivo, inspecione a estrutura e me passe!`);
           console.log(`=======================================================\n`);
           
-          atualizarLogScraping(logId, { status: 'erro', mensagem: 'Tabela de alunos não mapeada. HTML salvo.' });
-          scrapingState = 'DONE'; // Interrompe para debug
+          atualizarLogScraping(logId, { status: 'erro', mensagem: `Tabela de alunos não mapeada. HTML salvo.` });
+          scrapingState = 'DONE'; // Interrompe para debug final
           break;
         } else if (iframeState.error) {
-          console.log('[Scraper] Erro ao ler iframe:', iframeState.error, iframeState.html);
+          console.log('[Scraper] Erro transitório ao ler iframe, tentando de novo... Error:', iframeState.error);
+          await delay(3000);
+          // Permanece no mesmo estado WAIT_IFRAME_REPORT
         } else {
-          console.log(`[Scraper] Extraídos ${iframeState.alunos.length} alunos da turma ${turma.text}`);
+          console.log(`[Scraper] Extraídos ${iframeState.alunos.length} alunos da turma ${currentTurma.text}`);
           allAlunos.push(...iframeState.alunos);
+          
+          // Volta pra próxima turma
+          scrapingState = 'SCRAPE_TURMA';
         }
       }
     }
 
+    // Salvar alunos caso tenhamos achado algum
     if (allAlunos.length > 0) {
       upsertAlunosBatch(allAlunos);
     }
 
-    if (scrapingState === 'DONE' && allAlunos.length > 0) {
-      console.log(`[Scraper] Finalizado! Total: ${allAlunos.length} alunos.`);
-      atualizarLogScraping(logId, { 
-        status: 'concluido', 
-        total_alunos: allAlunos.length, 
-        mensagem: 'Scraping concluído com sucesso.' 
-      });
+    if (scrapingState === 'DONE') {
+      console.log(`[Scraper] Processo principal finalizado! Total no buffer: ${allAlunos.length} alunos.`);
+      const ultimoLog = getUltimoLogScraping();
+      if (ultimoLog.status !== 'erro') {
+        atualizarLogScraping(logId, { 
+          status: 'concluido', 
+          total_alunos: allAlunos.length, 
+          mensagem: 'Sincronização concluída com sucesso!' 
+        });
+      }
     }
 
   } catch (error) {
-    console.error('[Scraper] Erro durante o scraping:', error);
+    console.error('[Scraper] Erro catastrófico durante o scraping:', error);
     atualizarLogScraping(logId, { 
       status: 'erro', 
       mensagem: error.message 
