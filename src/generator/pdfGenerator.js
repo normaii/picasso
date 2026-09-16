@@ -109,14 +109,24 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
 
   // 3. Renderizar PDF
   let win = null;
+  let tmpHtmlPath = null;
   try {
     win = new BrowserWindow({
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
 
-    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml);
-    await win.loadURL(dataUrl);
+    const baseDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+    const pdfDir = path.join(baseDir, 'pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    // Salva o HTML em um arquivo temporário para evitar limites de tamanho de URL (ERR_INVALID_URL)
+    tmpHtmlPath = path.join(pdfDir, `temp_${turmaNome}_${Date.now()}.html`);
+    fs.writeFileSync(tmpHtmlPath, fullHtml, 'utf-8');
+
+    await win.loadFile(tmpHtmlPath);
 
     // Pequeno delay para garantir carregamento de imagens remotas/placeholders
     await new Promise(r => setTimeout(r, 1000));
@@ -128,12 +138,6 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
     });
 
     // 4. Salvar PDF no disco
-    const baseDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-    const pdfDir = path.join(baseDir, 'pdfs');
-    if (!fs.existsSync(pdfDir)) {
-      fs.mkdirSync(pdfDir, { recursive: true });
-    }
-
     const pdfPath = path.join(pdfDir, `Turma_${turmaNome}.pdf`);
     fs.writeFileSync(pdfPath, pdfData);
 
@@ -146,6 +150,9 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
   } finally {
     if (win) {
       win.close();
+    }
+    if (tmpHtmlPath && fs.existsSync(tmpHtmlPath)) {
+      try { fs.unlinkSync(tmpHtmlPath); } catch(e) {}
     }
   }
 }

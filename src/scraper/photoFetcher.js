@@ -221,7 +221,12 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
           (() => {
             try {
               const valBox = document.getElementById('ctl00_cphFormulario_tseAluno_ValueBox');
+              const descBox = document.getElementById('ctl00_cphFormulario_tseAluno_DescriptionBox');
               if (!valBox) return { error: 'campo_valor_nao_encontrado' };
+
+              if (descBox) {
+                descBox.value = ''; // Limpa para detectar a mudança
+              }
 
               valBox.focus();
               valBox.value = ${JSON.stringify(aluno.matricula)};
@@ -265,13 +270,13 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
         let alunoCarregado = false;
         let forcedPostback = false;
         let photoResult = null;
-        const maxWaitMs = 12000;
+        const maxWaitMs = 15000;
         const startWait = Date.now();
 
         while (Date.now() - startWait < maxWaitMs) {
           await delay(600);
 
-          // Verifica se o aluno carregou ou imagem apareceu
+          // Verifica se o aluno carregou
           const checkStatus = await win.webContents.executeJavaScript(`
             (async () => {
               try {
@@ -283,18 +288,15 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
                 const descBox = document.getElementById('ctl00_cphFormulario_tseAluno_DescriptionBox');
                 const descVal = descBox ? descBox.value : '';
                 const img = document.getElementById('ctl00_cphFormulario_bimgFotoPessoa');
-
-                // Procura também por qualquer imagem de aluno
-                const imgsWithSrc = Array.from(document.querySelectorAll('img'))
-                  .filter(i => i.src && (i.src.includes('DXCache') || i.id.includes('Foto') || i.id.includes('bimg')));
+                
+                // Pega a URL exata para log
+                const imgSrc = img ? img.src || img.getAttribute('src') : null;
 
                 return {
                   inPostBack,
                   descVal,
                   hasImg: !!img,
-                  imgSrc: img ? img.src : null,
-                  imgAlt: img ? img.alt : null,
-                  candidateImgs: imgsWithSrc.map(i => ({ id: i.id, src: i.src, alt: i.alt }))
+                  imgSrc
                 };
               } catch (e) {
                 return { error: e.message };
@@ -302,21 +304,16 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
             })();
           `);
 
-          if (checkStatus.hasImg || (checkStatus.candidateImgs && checkStatus.candidateImgs.length > 0)) {
-            addLog(`[Worker ${workerId}] Imagem detectada no DOM para ${aluno.matricula}! (desc: "${checkStatus.descVal}")`);
+          // Condição de sucesso: O postback não está rodando E a description box preencheu (significando que a busca retornou os dados do aluno)
+          if (!checkStatus.inPostBack && checkStatus.descVal && checkStatus.descVal.trim().length > 0) {
+            addLog(`[Worker ${workerId}] Aluno carregado com sucesso: "${checkStatus.descVal}"! (Imagem src: ${checkStatus.imgSrc})`);
             alunoCarregado = true;
+            await delay(1000); // Aguarda um segundo adicional para garantir que a imagem tenha tempo de carregar os bytes
             break;
           }
 
-          if (checkStatus.descVal && checkStatus.descVal.trim().length > 0) {
-            addLog(`[Worker ${workerId}] Aluno carregado via DescriptionBox: "${checkStatus.descVal}"!`);
-            alunoCarregado = true;
-            await delay(500);
-            break;
-          }
-
-          // Fallback após 3s: se a página não reagiu ao tsearchTextFieldChange, tenta __doPostBack direto
-          if (!alunoCarregado && Date.now() - startWait >= 3000 && !forcedPostback) {
+          // Fallback após 5s: se a página não reagiu ao tsearchTextFieldChange, tenta __doPostBack direto
+          if (!alunoCarregado && Date.now() - startWait >= 5000 && !forcedPostback) {
             forcedPostback = true;
             addLog(`[Worker ${workerId}] Tentando fallback com __doPostBack para ${aluno.matricula}...`);
             await win.webContents.executeJavaScript(`
@@ -352,12 +349,12 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
               const alt = (img.getAttribute('alt') || '').toLowerCase();
               const src = img.getAttribute('src') || '';
 
-              if (alt.includes('sem foto') || !src || src === '#' || src.includes('sem_foto')) {
-                return { semFoto: true, foundId: img.id, foundSrc: src };
+              if (!src || src === '#' || src.includes('sem_foto')) {
+                return { semFoto: true, foundId: img.id, foundSrc: src, foundAlt: alt };
               }
 
               if (!src.includes('DXCache') && !src.includes('DXR.axd') && !src.includes('Foto') && !src.startsWith('data:') && !src.startsWith('/')) {
-                return { semFoto: true, foundId: img.id, foundSrc: src };
+                return { semFoto: true, foundId: img.id, foundSrc: src, foundAlt: alt };
               }
 
               // Tentativa 1: Canvas
@@ -412,7 +409,7 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
           // O aluno não tem foto no SEEDUC: marca no banco e usa avatar default
           marcarAlunoSemFoto(aluno.matricula, defaultAvatarPath);
           fetchStatus.semFoto++;
-          addLog(`⚪ [Sem Foto] ${aluno.nome} não possui foto no sistema. Avatar padrão aplicado.`);
+          addLog(`⚪ [Sem Foto] ${aluno.nome} não possui foto no sistema. Avatar padrão aplicado. (src: ${photoResult.foundSrc}, alt: ${photoResult.foundAlt})`);
         } else if (photoResult.success && photoResult.dataUrl) {
           // Extraiu a foto com sucesso! Salva no disco
           const base64Data = photoResult.dataUrl.replace(/^data:image\/\w+;base64,/, '');
