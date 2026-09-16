@@ -255,16 +255,25 @@ async function iniciarScraping(cookies) {
               
               const doc = iframe.contentDocument;
               
-              // CSS SELECTORS AINDA FICTÍCIOS
-              const trs = doc.querySelectorAll('table tr.aluno-row'); 
+              // A estrutura do SSRS muda as classes CSS (a46, a50) a cada execução.
+              // Vamos pegar TODAS as TRs e filtrar aquelas cuja 1ª coluna seja uma matrícula (apenas números, mínimo 10 dígitos)
+              const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 4) return false;
+                const txt = tds[0].innerText.trim();
+                return /^\\d{10,}$/.test(txt);
+              });
+              
               if (trs.length === 0) {
                   return { error: 'table_not_found', html: doc.body.innerHTML };
               }
               
               const alunos = [];
               trs.forEach(tr => {
-                const nome = tr.querySelector('.nome')?.innerText.trim();
-                const matricula = tr.querySelector('.matricula')?.innerText.trim();
+                const tds = tr.querySelectorAll('td');
+                const matricula = tds[0].innerText.trim();
+                const nome = tds[1].innerText.trim();
+                // tds[2] é a Turma original do relatório, mas já temos currentTurma.text
                 if (nome && matricula) {
                   alunos.push({ nome, matricula, turma_nome: '${currentTurma.text}' });
                 }
