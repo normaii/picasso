@@ -167,17 +167,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (data && data.scraping) {
           const s = data.scraping;
-          if (s.status === 'processando') {
-            adicionarLog(`Extraindo... Turmas: ${s.progresso_turmas} | Alunos: ${s.progresso_alunos}`);
-          } else if (s.status === 'concluido') {
+          if (s.status === 'concluido') {
             adicionarLog(`Sincronização concluída! Total Alunos: ${s.total_alunos}`, false);
             clearInterval(syncPollingInterval);
             btnSync.disabled = false;
             atualizarEstatisticas(s.total_alunos, s.progresso_turmas);
           } else if (s.status === 'erro') {
-            adicionarLog(`Erro no scraping: ${s.erro}`, true);
+            adicionarLog(`Erro no scraping: ${s.erro || s.mensagem}`, true);
             clearInterval(syncPollingInterval);
             btnSync.disabled = false;
+          } else {
+            // Qualquer outro status (processando, navegando, extraindo...)
+            adicionarLog(`[${s.status}] ${s.mensagem || 'Extraindo...'}`);
           }
         }
       } catch (err) {

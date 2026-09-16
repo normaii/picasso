@@ -59,6 +59,7 @@ async function iniciarScraping(cookies) {
     let scrapingState = 'SELECT_FILTERS';
     let turmasToScrape = [];
     let allAlunos = [];
+    let waitRetries = 0;
     
     atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Preenchendo filtros de pesquisa (Regional, Escola, etc)...' });
 
@@ -84,7 +85,7 @@ async function iniciarScraping(cookies) {
               const sem = getVal('rptViewer_ctl00_ctl11_ddValue');
               const turma = getVal('rptViewer_ctl00_ctl13_ddValue');
               
-              const needsSelection = (val) => !val || val === '0' || val === '1' || val.includes('Select a Value') || val.includes('Selecione');
+              const needsSelection = (val) => !val || val === '0' || val === '1' || String(val).includes('Select a Value') || String(val).includes('Selecione');
               
               const pickFirstValid = (opts) => {
                 const valid = opts.find(o => !needsSelection(o.val));
@@ -124,9 +125,9 @@ async function iniciarScraping(cookies) {
                 return { action: 'done_filters', turmas: turmaOpts };
               }
 
-              return { action: 'wait' }; // Talvez ainda esteja carregando
+              return { action: 'wait', html_length: document.body.innerHTML.length }; // Talvez ainda esteja carregando
             } catch (e) {
-              return { error: e.message };
+              return { error: e.message, html_length: 0 };
             }
           })();
         `);
@@ -136,18 +137,34 @@ async function iniciarScraping(cookies) {
         }
 
         if (filterState.action === 'select') {
+          waitRetries = 0;
           console.log(`[Scraper] Selecionando filtro ${filterState.id} = ${filterState.val}`);
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Preenchendo: ${filterState.id}` });
           await win.webContents.executeJavaScript(`
             document.getElementById('${filterState.id}').value = '${filterState.val}';
             __doPostBack('${filterState.name}', '');
           `);
           await delay(4000); // Aguarda o PostBack e o reload da página ASP.NET
         } else if (filterState.action === 'done_filters') {
+          waitRetries = 0;
           turmasToScrape = filterState.turmas;
           console.log(`[Scraper] Filtros preenchidos! Encontradas ${turmasToScrape.length} turmas para raspar.`);
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Turmas encontradas: ${turmasToScrape.length}. Iniciando...` });
           scrapingState = 'SCRAPE_TURMAS';
         } else {
           // wait
+          waitRetries++;
+          console.log(`[Scraper] Aguardando elementos da página carregarem (tentativa ${waitRetries}/15)... HTML Length: ${filterState.html_length}`);
+          
+          if (waitRetries > 15) {
+            const htmlCompleto = await win.webContents.executeJavaScript('document.body.innerHTML');
+            const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_main.html');
+            fs.writeFileSync(debugPath, htmlCompleto, 'utf-8');
+            console.log(`\n[Scraper] TIMEOUT! Os filtros não apareceram na página pai. HTML salvo em: ${debugPath}`);
+            atualizarLogScraping(logId, { status: 'erro', mensagem: 'Timeout ao aguardar carregamento dos filtros (SSRS).' });
+            scrapingState = 'DONE';
+            break;
+          }
           await delay(2000);
         }
       } 
