@@ -32,21 +32,9 @@ async function iniciarScraping(cookies) {
       }
     });
 
-    // 1. Injetar os cookies
-    for (const cookie of cookies) {
-      // ajusta propriedades do cookie pro Electron
-      const cookieConfig = {
-        url: BASE_URL,
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly,
-        expirationDate: cookie.expirationDate
-      };
-      await win.webContents.session.cookies.set(cookieConfig);
-    }
+    // 1. Cookies não precisam ser injetados manualmente.
+    // Como a janela invisível usa a defaultSession, ela já herda
+    // a sessão autenticada da janela de login automaticamente.
 
     atualizarLogScraping(logId, { status: 'navegando_relatorio', mensagem: 'Acessando relatório de alunos...' });
 
