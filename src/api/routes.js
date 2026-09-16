@@ -208,10 +208,10 @@ router.get('/sincronizacao/estimativa', (req, res) => {
  */
 router.post('/fotos/iniciar', async (req, res) => {
   try {
-    const { turma, concurrency, cookies } = req.body || {};
+    const { turma, concurrency, cookies, forcar } = req.body || {};
 
     // Dispara em background
-    iniciarDownloadFotos({ turma, concurrency, cookies }).catch(err => {
+    iniciarDownloadFotos({ turma, concurrency, cookies, forcar }).catch(err => {
       console.error('[API] Erro em background ao baixar fotos:', err.message);
     });
 

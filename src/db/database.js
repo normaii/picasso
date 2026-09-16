@@ -177,8 +177,11 @@ function getTotalAlunos() {
  * Retorna alunos pendentes de foto (sem foto_path e sem flag sem_foto).
  * Opcionalmente filtra por turma.
  */
-function getAlunosSemFoto({ turma } = {}) {
-  let pendentes = dbData.alunos.filter(a => !a.foto_path && !a.sem_foto);
+function getAlunosSemFoto({ turma, forcar = false } = {}) {
+  let pendentes = dbData.alunos;
+  if (!forcar) {
+    pendentes = pendentes.filter(a => !a.foto_path && !a.sem_foto);
+  }
   if (turma && turma !== 'TODAS') {
     pendentes = pendentes.filter(a => a.turma_nome === turma);
   }

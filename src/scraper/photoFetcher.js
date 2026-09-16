@@ -458,8 +458,9 @@ async function photoWorker(workerId, queue, defaultAvatarPath, fotosDir) {
  * @param {string} [options.turma] - Turma específica ou 'TODAS'
  * @param {number} [options.concurrency=2] - Número de janelas paralelas (1 a 3)
  * @param {Array} [options.cookies] - Cookies da sessão do SEEDUC
+ * @param {boolean} [options.forcar=false] - Forçar reprocessamento ignorando cache
  */
-async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = null } = {}) {
+async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = null, forcar = false } = {}) {
   if (fetchStatus.status === 'em_andamento') {
     throw new Error('Já existe um processo de download de fotos em andamento.');
   }
@@ -487,7 +488,7 @@ async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = n
 
   // 1. Busca alunos pendentes no banco
   const turmaFiltro = (turma && turma !== 'TODAS') ? turma : null;
-  const alunosPendentes = getAlunosSemFoto({ turma: turmaFiltro });
+  const alunosPendentes = getAlunosSemFoto({ turma: turmaFiltro, forcar });
 
   if (alunosPendentes.length === 0) {
     fetchStatus.status = 'concluido';

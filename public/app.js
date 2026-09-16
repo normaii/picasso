@@ -638,6 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnIniciarFotos.addEventListener('click', async () => {
       const turma = selectTurmaFotos ? selectTurmaFotos.value : 'TODAS';
       const concurrency = selectConcurrencyFotos ? (parseInt(selectConcurrencyFotos.value) || 2) : 2;
+      const checkForcar = document.getElementById('check-forcar-reprocessamento');
+      const forcar = checkForcar ? checkForcar.checked : false;
 
       btnIniciarFotos.disabled = true;
       if (btnCancelarFotos) {
@@ -655,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('http://localhost:3000/api/fotos/iniciar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ turma, concurrency })
+          body: JSON.stringify({ turma, concurrency, forcar })
         });
 
         const data = await res.json();
