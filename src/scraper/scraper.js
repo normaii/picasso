@@ -71,6 +71,13 @@ async function iniciarScraping(cookies) {
     
     let stateRetries = 0;
 
+    const FIELD_NAMES = {
+      'rptViewer_ctl00_ctl03_ddValue': 'Regional',
+      'rptViewer_ctl00_ctl05_ddValue': 'Município',
+      'rptViewer_ctl00_ctl07_ddValue': 'Escola',
+      'rptViewer_ctl00_ctl09_ddValue': 'Ano'
+    };
+
     atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Aguardando inicialização da página...' });
 
     // ----------------------------------------------------
@@ -94,26 +101,44 @@ async function iniciarScraping(cookies) {
               const getOpts = id => { 
                 const el = document.getElementById(id); 
                 if (!el) return [];
-                return Array.from(el.options).map(o => ({val: o.value, text: o.text}));
+                return Array.from(el.options).map(o => ({val: o.value, text: o.text.trim()}));
               };
               
-              const needsSel = (v) => !v || v === '0' || v === '1' || String(v).includes('Select') || String(v).includes('Selecione');
+              const isValidOpt = (opt) => {
+                if (!opt || !opt.val || opt.val === '0') return false;
+                const t = opt.text.toUpperCase();
+                if (t.includes('SELECT') || t.includes('SELECIONE')) return false;
+                return true;
+              };
               
               const pickFirst = (opts) => {
-                const valid = opts.find(o => !needsSel(o.val));
-                return valid ? valid.val : null;
+                const valid = opts.find(isValidOpt);
+                return valid ? valid : null;
               };
 
-              // IDs dos dropdowns
               const regId = 'rptViewer_ctl00_ctl03_ddValue';
               const munId = 'rptViewer_ctl00_ctl05_ddValue';
               const escId = 'rptViewer_ctl00_ctl07_ddValue';
               const anoId = 'rptViewer_ctl00_ctl09_ddValue';
 
-              if (needsSel(getVal(regId))) return { action: 'select', id: regId, val: pickFirst(getOpts(regId)) };
-              if (needsSel(getVal(munId))) return { action: 'select', id: munId, val: pickFirst(getOpts(munId)) };
-              if (needsSel(getVal(escId))) return { action: 'select', id: escId, val: pickFirst(getOpts(escId)) };
-              if (needsSel(getVal(anoId))) return { action: 'select', id: anoId, val: pickFirst(getOpts(anoId)) };
+              // Precisamos pegar a lista de options para verificar se o valor ATUAL é válido.
+              // Se não for, pegamos a primeira opção válida.
+              const regOpts = getOpts(regId);
+              const munOpts = getOpts(munId);
+              const escOpts = getOpts(escId);
+              const anoOpts = getOpts(anoId);
+              
+              const regCurrent = regOpts.find(o => o.val === getVal(regId));
+              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts) };
+              
+              const munCurrent = munOpts.find(o => o.val === getVal(munId));
+              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts) };
+              
+              const escCurrent = escOpts.find(o => o.val === getVal(escId));
+              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts) };
+              
+              const anoCurrent = anoOpts.find(o => o.val === getVal(anoId));
+              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts) };
               
               return { action: 'done' };
             } catch (e) {
@@ -127,7 +152,7 @@ async function iniciarScraping(cookies) {
         }
 
         if (setupState.action === 'select') {
-          if (!setupState.val) {
+          if (!setupState.opt) {
             stateRetries++;
             if (stateRetries > 5) throw new Error(`Não foi possível achar opção válida para o filtro ${setupState.id}.`);
             await delay(1500);
@@ -135,18 +160,19 @@ async function iniciarScraping(cookies) {
           }
           stateRetries = 0;
           
-          console.log(`[Scraper] Preenchendo filtro base: ${setupState.id} = ${setupState.val}`);
-          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Preenchendo: ${setupState.id}` });
+          const label = FIELD_NAMES[setupState.id] || setupState.id;
+          console.log(`[Scraper] Selecionando ${label}...`);
+          console.log(`[Scraper] ${label} ${setupState.opt.text} Selecionado(a)...`);
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${label} ${setupState.opt.text} Selecionado(a)...` });
           
-          // Dispara o 'change' via DOM, simulando o usuário perfeitamente sem chamar __doPostBack à mão.
           await win.webContents.executeJavaScript(`
             (() => {
               const el = document.getElementById('${setupState.id}');
-              el.value = '${setupState.val}';
+              el.value = '${setupState.opt.val}';
               el.dispatchEvent(new Event('change', { bubbles: true }));
             })();
           `);
-          await delay(1000); // pequeno delay só pra dar tempo do Sys.WebForms registrar o postback
+          await delay(1000);
         } else if (setupState.action === 'done') {
           console.log('[Scraper] Filtros base preenchidos. Indo capturar semestres...');
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Filtros base configurados. Mapeando semestres...` });
@@ -159,10 +185,13 @@ async function iniciarScraping(cookies) {
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
             if (!el) return { error: 'Dropdown semestre não encontrado.' };
-            const needsSel = (v) => !v || v === '0' || String(v).includes('Select') || String(v).includes('Selecione');
+            const isValid = (t) => {
+              const upper = t.toUpperCase();
+              return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
+            };
             const opts = Array.from(el.options)
-                              .filter(o => !needsSel(o.value))
-                              .map(o => ({ val: o.value, text: o.text }));
+                              .filter(o => o.value !== '0' && isValid(o.text))
+                              .map(o => ({ val: o.value, text: o.text.trim() }));
             return { sems: opts };
           })();
         `);
@@ -201,10 +230,13 @@ async function iniciarScraping(cookies) {
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
             if (!el) return { error: 'Dropdown turma não encontrado.' };
-            const needsSel = (v) => !v || v === '0' || String(v).includes('Select') || String(v).includes('Selecione');
+            const isValid = (t) => {
+              const upper = t.toUpperCase();
+              return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
+            };
             const opts = Array.from(el.options)
-                              .filter(o => !needsSel(o.value))
-                              .map(o => ({ val: o.value, text: o.text }));
+                              .filter(o => o.value !== '0' && isValid(o.text))
+                              .map(o => ({ val: o.value, text: o.text.trim() }));
             return { turmas: opts };
           })();
         `);
@@ -319,14 +351,11 @@ async function iniciarScraping(cookies) {
 
     if (scrapingState === 'DONE') {
       console.log(`[Scraper] Processo principal finalizado! Total no buffer: ${allAlunos.length} alunos.`);
-      const ultimoLog = getUltimoLogScraping();
-      if (ultimoLog.status !== 'erro') {
-        atualizarLogScraping(logId, { 
-          status: 'concluido', 
-          total_alunos: allAlunos.length, 
-          mensagem: 'Sincronização concluída com sucesso!' 
-        });
-      }
+      atualizarLogScraping(logId, { 
+        status: 'concluido', 
+        total_alunos: allAlunos.length, 
+        mensagem: 'Sincronização concluída com sucesso!' 
+      });
     }
 
   } catch (error) {
