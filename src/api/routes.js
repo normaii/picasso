@@ -7,6 +7,8 @@
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
 const {
   buscarAlunos,
@@ -14,7 +16,15 @@ const {
   getTurmas,
   getTotalAlunos,
   getUltimoLogScraping,
+  getEstatisticasFotos,
+  getUltimaEstimativaSincronizacao,
 } = require('../db/database');
+
+const {
+  iniciarDownloadFotos,
+  requestCancelPhotos,
+  getPhotoFetchStatus,
+} = require('../scraper/photoFetcher');
 
 // ============================================================
 // Alunos
@@ -70,8 +80,9 @@ router.get('/alunos/:id', (req, res) => {
  */
 router.get('/turmas', (req, res) => {
   try {
-    const turmas = getTurmas();
-    res.json({ turmas });
+    const turmasObj = getTurmas();
+    const turmasNomes = turmasObj.map(t => t.turma_nome);
+    res.json({ turmas: turmasNomes, detalhes: turmasObj });
   } catch (error) {
     console.error('[API] Erro ao listar turmas:', error.message);
     res.status(500).json({ erro: 'Erro ao listar turmas.' });
@@ -174,21 +185,109 @@ router.get('/scraping/status', (req, res) => {
 });
 
 /**
- * GET /api/turmas
- * Retorna as turmas disponíveis baseando-se nos alunos existentes.
+ * GET /api/sincronizacao/estimativa
+ * Retorna se há histórico prévio e o tempo estimado da Sincronização Geral.
  */
-router.get('/turmas', (req, res) => {
+router.get('/sincronizacao/estimativa', (req, res) => {
   try {
-    const { buscarAlunos } = require('../db/database');
-    const alunos = buscarAlunos({ limite: 10000 });
-    const turmasSet = new Set();
-    alunos.forEach(a => {
-      if (a.turma_nome) turmasSet.add(a.turma_nome);
-    });
-    res.json({ turmas: Array.from(turmasSet).sort() });
+    const estimativa = getUltimaEstimativaSincronizacao();
+    res.json(estimativa);
   } catch (error) {
-    console.error('[API] Erro ao buscar turmas:', error);
-    res.status(500).json({ erro: 'Erro interno' });
+    res.status(500).json({ erro: 'Erro ao obter estimativa de sincronização.' });
+  }
+});
+
+// ============================================================
+// Fotos dos Alunos (photoFetcher)
+// ============================================================
+
+/**
+ * POST /api/fotos/iniciar
+ * Inicia download de fotos em background com suporte a concorrência e filtro por turma.
+ * Body: { turma?: string, concurrency?: number, cookies?: Array }
+ */
+router.post('/fotos/iniciar', async (req, res) => {
+  try {
+    const { turma, concurrency, cookies, forcar } = req.body || {};
+
+    // Dispara em background
+    iniciarDownloadFotos({ turma, concurrency, cookies, forcar }).catch(err => {
+      console.error('[API] Erro em background ao baixar fotos:', err.message);
+    });
+
+    res.json({
+      mensagem: 'Download de fotos iniciado em background.',
+      turma: turma || 'Todas as turmas'
+    });
+  } catch (error) {
+    console.error('[API] Erro ao iniciar download de fotos:', error.message);
+    res.status(400).json({ erro: error.message });
+  }
+});
+
+/**
+ * POST /api/fotos/cancelar
+ * Cancela o download de fotos em andamento.
+ */
+router.post('/fotos/cancelar', (req, res) => {
+  try {
+    requestCancelPhotos();
+    res.json({ mensagem: 'Solicitação de cancelamento de fotos enviada.' });
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao cancelar download de fotos.' });
+  }
+});
+
+/**
+ * GET /api/fotos/status
+ * Retorna status em tempo real do download de fotos e estatísticas.
+ */
+router.get('/fotos/status', (req, res) => {
+  try {
+    const status = getPhotoFetchStatus();
+    res.json({ fotos: status });
+  } catch (error) {
+    console.error('[API] Erro ao consultar status das fotos:', error.message);
+    res.status(500).json({ erro: 'Erro ao consultar status das fotos.' });
+  }
+});
+
+/**
+ * GET /api/fotos/estatisticas
+ * Retorna estatísticas de fotos (com foto, sem foto no sistema, pendentes).
+ */
+router.get('/fotos/estatisticas', (req, res) => {
+  try {
+    const stats = getEstatisticasFotos();
+    res.json({ estatisticas: stats });
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao consultar estatísticas de fotos.' });
+  }
+});
+
+/**
+ * GET /api/fotos/arquivo/:matricula
+ * Serve o arquivo de foto do aluno ou avatar padrão se não houver.
+ */
+router.get('/fotos/arquivo/:matricula', (req, res) => {
+  try {
+    const { matricula } = req.params;
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
+    const fotoPath = path.join(dataDir, 'fotos', `${matricula}.jpg`);
+
+    if (fs.existsSync(fotoPath)) {
+      return res.sendFile(fotoPath);
+    }
+
+    const defaultAvatar = path.join(__dirname, '..', '..', 'assets', 'default_avatar.jpg');
+    if (fs.existsSync(defaultAvatar)) {
+      return res.sendFile(defaultAvatar);
+    }
+
+    res.status(404).send('Foto não encontrada.');
+  } catch (error) {
+    console.error('[API] Erro ao servir foto:', error);
+    res.status(500).json({ erro: 'Erro ao servir foto.' });
   }
 });
 

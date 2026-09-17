@@ -29,6 +29,7 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | [ADR-017](#adr-017) | Mecanismo Passivo de Atualização (Update Checker) | ✅ Aceito | 2026-09-12 |
 | [ADR-018](#adr-018) | Pipeline de Auto-Bumping e Pre-Releases | ✅ Aceito | 2026-09-12 |
 | [ADR-019](#adr-019) | Interface Amigável de Importação | 🔮 Proposto (Futuro) | 2026-09-16 |
+| [ADR-020](#adr-020) | Desacoplamento da Sessão e Orquestração Modular | 🔮 Proposto (Pós-V1) | 2026-09-16 |
 
 ---
 
@@ -373,6 +374,32 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 
 ---
 
+## ADR-020
+### Desacoplamento da Sessão de Autenticação e Orquestração Modular
+
+**Status**: 🔮 Proposto (Melhoria Pós-V1) — 2026-09-16
+
+**Contexto**: No protótipo inicial da V1, a rotina de Login manual com CAPTCHA estava rigidamente atrelada ao acionamento do botão "Sincronizar". Isso forçava uma extração completa da listagem de turmas/alunos mesmo quando o diretor desejava apenas obter fotos pendentes, ou resultava em falhas no módulo de fotos caso o login não tivesse sido realizado previamente na mesma sessão. Além disso, a sessão no Electron dependia exclusivamente da permanência em memória durante o ciclo de vida da janela.
+
+**Decisão**:
+1. **Landing Home Screen na V1**: Desacoplar o Login de qualquer módulo de extração. O login no Conexão Educação passa a ser a porta de entrada da aplicação, executado na Home Screen. Uma vez autenticado com sucesso, a interface exibe o status de sessão ativa ("Login efetuado com Sucesso") e libera o acesso independente aos módulos satélites:
+   - **Módulo AdD (Aquisição de Dados)**: Importação de turmas e alunos.
+   - **Módulo CdF (Captura de Fotos)**: Download de fotos (condicionado à existência de alunos carregados).
+   - **Sincronização Geral**: Orquestração em cadeia (AdD seguido de CdF) com estimativa de tempo e aviso de segurança quando não houver histórico comparativo.
+2. **Evolução Pós-V1**:
+   - **Persistência Criptografada**: Armazenar os cookies de sessão de forma segura no disco usando `safeStorage` do Electron (criptografia baseada em DPAPI no Windows / Keychain no macOS).
+   - **Revalidação Transparente / Health-Check**: O sistema verificará em background a validade dos cookies periodicamente antes de acionar AdD ou CdF.
+   - **Renovação Sem Quedas**: Caso a sessão expire durante uma carga longa de fotos, o sistema suspenderá a fila temporariamente, abrirá a janela de login modal apenas para o diretor resolver o CAPTCHA e retomará a fila de downloads de onde parou sem perda de progresso.
+
+**Justificativa**: Reduz drasticamente o atrito de uso diário, elimina raspagens repetitivas de 500+ alunos sem necessidade, e concede total independência aos módulos AdD, CdF e GdI.
+
+**Consequências**:
+- A Home Screen passa a atuar como painel de controle operacional de autenticação e prontidão dos módulos.
+- Os módulos AdD e CdF operam de forma autônoma sem exigir login redundante.
+- A persistência criptografada exigirá implementação cuidadosa na V2 para respeitar privacidade e segurança de dados do diretor escolar.
+
+---
+
 ## Histórico de Alterações
 
 | Data | Alteração |
@@ -386,3 +413,5 @@ Documento de registro de todas as decisões arquiteturais e de design tomadas no
 | 2026-09-12 | Adicionado ADR-017 (Update Checker Passivo). |
 | 2026-09-12 | Adicionado ADR-018 (Auto-Bumping e Pre-Releases). |
 | 2026-09-16 | Adicionado ADR-019 (Interface Amigável de Importação). |
+| 2026-09-16 | Adicionado ADR-020 (Desacoplamento de Sessão e Orquestração Modular Pós-V1). |
+

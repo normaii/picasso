@@ -4,6 +4,38 @@ const fs = require('fs');
 const { getAlunosPorTurma } = require('../db/database'); // Precisamos implementar isso se não existir, ou usar buscarAlunos
 
 /**
+ * Resolve a imagem do aluno para data URI (base64) para renderização garantida no PDF.
+ * Usa o avatar padrão local como fallback caso não haja foto.
+ */
+function resolveFotoDataUrl(fotoPath) {
+  if (fotoPath && fs.existsSync(fotoPath)) {
+    try {
+      const ext = path.extname(fotoPath).toLowerCase().slice(1) || 'jpeg';
+      const b64 = fs.readFileSync(fotoPath).toString('base64');
+      return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${b64}`;
+    } catch (e) {
+      console.error('[PDF] Erro ao ler foto do aluno:', e.message);
+    }
+  }
+
+  const candidateAvatars = [
+    path.join(__dirname, '..', '..', 'assets', 'default_avatar.jpg'),
+    path.join(__dirname, '..', '..', 'public', 'assets', 'default_avatar.jpg')
+  ];
+
+  for (const avatarPath of candidateAvatars) {
+    if (fs.existsSync(avatarPath)) {
+      try {
+        const b64 = fs.readFileSync(avatarPath).toString('base64');
+        return `data:image/jpeg;base64,${b64}`;
+      } catch (e) {}
+    }
+  }
+
+  return 'https://via.placeholder.com/150/e0e0e0/7f8c8d?text=Sem+Foto';
+}
+
+/**
  * Carrega e injeta dados nos templates
  */
 function buildHtmlForStudents(alunos, escolaNome, logoUrl) {
@@ -30,7 +62,7 @@ function buildHtmlForStudents(alunos, escolaNome, logoUrl) {
     for (const aluno of chunk) {
       let cardStr = cardHtml;
       
-      const fotoUrl = aluno.foto_path || 'https://via.placeholder.com/150/e0e0e0/7f8c8d?text=Sem+Foto';
+      const fotoUrl = resolveFotoDataUrl(aluno.foto_path);
       const logoFinal = logoUrl || 'https://via.placeholder.com/150/ffffff/2980b9?text=LOGO';
       const ano = new Date().getFullYear();
       
@@ -77,14 +109,24 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
 
   // 3. Renderizar PDF
   let win = null;
+  let tmpHtmlPath = null;
   try {
     win = new BrowserWindow({
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
 
-    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml);
-    await win.loadURL(dataUrl);
+    const baseDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+    const pdfDir = path.join(baseDir, 'pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    // Salva o HTML em um arquivo temporário para evitar limites de tamanho de URL (ERR_INVALID_URL)
+    tmpHtmlPath = path.join(pdfDir, `temp_${turmaNome}_${Date.now()}.html`);
+    fs.writeFileSync(tmpHtmlPath, fullHtml, 'utf-8');
+
+    await win.loadFile(tmpHtmlPath);
 
     // Pequeno delay para garantir carregamento de imagens remotas/placeholders
     await new Promise(r => setTimeout(r, 1000));
@@ -96,12 +138,6 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
     });
 
     // 4. Salvar PDF no disco
-    const baseDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-    const pdfDir = path.join(baseDir, 'pdfs');
-    if (!fs.existsSync(pdfDir)) {
-      fs.mkdirSync(pdfDir, { recursive: true });
-    }
-
     const pdfPath = path.join(pdfDir, `Turma_${turmaNome}.pdf`);
     fs.writeFileSync(pdfPath, pdfData);
 
@@ -114,6 +150,9 @@ async function gerarPdfTurma(turmaNome, escolaNome, logoUrl) {
   } finally {
     if (win) {
       win.close();
+    }
+    if (tmpHtmlPath && fs.existsSync(tmpHtmlPath)) {
+      try { fs.unlinkSync(tmpHtmlPath); } catch(e) {}
     }
   }
 }

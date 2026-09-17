@@ -174,15 +174,71 @@ function getTotalAlunos() {
 }
 
 /**
- * Atualiza foto do aluno.
+ * Retorna alunos pendentes de foto (sem foto_path e sem flag sem_foto).
+ * Opcionalmente filtra por turma.
+ */
+function getAlunosSemFoto({ turma, forcar = false } = {}) {
+  let pendentes = dbData.alunos;
+  if (!forcar) {
+    pendentes = pendentes.filter(a => !a.foto_path && !a.sem_foto);
+  }
+  if (turma && turma !== 'TODAS') {
+    pendentes = pendentes.filter(a => a.turma_nome === turma);
+  }
+  return pendentes;
+}
+
+/**
+ * Atualiza foto do aluno com o caminho salvo.
  */
 function atualizarFotoAluno(matricula, fotoPath) {
   const aluno = dbData.alunos.find(a => a.matricula === matricula);
   if (aluno) {
     aluno.foto_path = fotoPath;
+    aluno.sem_foto = false;
     aluno.atualizado_em = new Date().toISOString();
     saveDb();
   }
+}
+
+/**
+ * Marca aluno como não possuindo foto no SEEDUC e atribui avatar padrão.
+ */
+function marcarAlunoSemFoto(matricula, defaultAvatarPath = null) {
+  const aluno = dbData.alunos.find(a => a.matricula === matricula);
+  if (aluno) {
+    aluno.foto_path = defaultAvatarPath || aluno.foto_path || null;
+    aluno.sem_foto = true;
+    aluno.atualizado_em = new Date().toISOString();
+    saveDb();
+  }
+}
+
+/**
+ * Retorna estatísticas sobre fotos dos alunos.
+ */
+function getEstatisticasFotos() {
+  const total = dbData.alunos.length;
+  let comFotoReal = 0;
+  let semFotoOficial = 0;
+  let pendentes = 0;
+
+  for (const a of dbData.alunos) {
+    if (a.sem_foto) {
+      semFotoOficial++;
+    } else if (a.foto_path) {
+      comFotoReal++;
+    } else {
+      pendentes++;
+    }
+  }
+
+  return {
+    total,
+    comFotoReal,
+    semFotoOficial,
+    pendentes
+  };
 }
 
 // ============================================================
@@ -225,6 +281,35 @@ function getUltimoLogScraping() {
   return dbData.log_scraping[dbData.log_scraping.length - 1];
 }
 
+/**
+ * Calcula a estimativa de tempo para a Sincronização Geral com base na última execução.
+ */
+function getUltimaEstimativaSincronizacao() {
+  const logsConcluidos = dbData.log_scraping.filter(l => l.status === 'concluido' && l.inicio && l.fim);
+  if (logsConcluidos.length === 0) {
+    return { temHistorico: false, mensagem: 'Sem histórico de sincronização anterior' };
+  }
+
+  const ultimoLog = logsConcluidos[logsConcluidos.length - 1];
+  const duracaoAdDMs = Math.max(0, new Date(ultimoLog.fim).getTime() - new Date(ultimoLog.inicio).getTime());
+
+  // Estimativa do CdF baseada no total de alunos: ~3.5 segundos por aluno (com paralelismo 2)
+  const totalAlunos = dbData.alunos.length || ultimoLog.total_alunos || 0;
+  const duracaoCdFEstimadaMs = totalAlunos * 3500;
+  const duracaoTotalMs = duracaoAdDMs + duracaoCdFEstimadaMs;
+  const minutos = Math.max(1, Math.ceil(duracaoTotalMs / 60000));
+
+  return {
+    temHistorico: true,
+    duracaoAdDMs,
+    duracaoCdFEstimadaMs,
+    duracaoTotalMs,
+    minutosEstimados: minutos,
+    totalAlunos,
+    mensagem: `~${minutos} minuto${minutos > 1 ? 's' : ''}`
+  };
+}
+
 // ============================================================
 // Fecha o banco
 // ============================================================
@@ -244,7 +329,11 @@ module.exports = {
   getTurmas,
   getTotalAlunos,
   atualizarFotoAluno,
+  getAlunosSemFoto,
+  marcarAlunoSemFoto,
+  getEstatisticasFotos,
   criarLogScraping,
   atualizarLogScraping,
   getUltimoLogScraping,
+  getUltimaEstimativaSincronizacao,
 };
