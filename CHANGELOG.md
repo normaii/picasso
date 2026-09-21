@@ -4,6 +4,30 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.3](https://github.com/normaii/picasso/compare/v0.1.0-dev.2...v0.1.0-dev.3) (2026-09-21)
+
+### 🐛 Correções
+
+* **ci:** usa argumento por extenso no electron-builder ([9dc95fe](https://github.com/normaii/picasso/commit/9dc95fe8123699ae4824852a41ba962765ef77dc))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
+## [0.1.0-dev.2](https://github.com/normaii/picasso/compare/v0.1.0-dev.1...v0.1.0-dev.2) (2026-09-21)
+
+### 🐛 Correções
+
+* **ci:** ajusta releaseType no electron-builder para casar com o semantic-release ([6327c41](https://github.com/normaii/picasso/commit/6327c418d2253750ce062d95b392d9cef3acfb3f))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-rc.1](https://github.com/normaii/picasso/compare/v0.0.10...v0.1.0-rc.1) (2026-09-21)
 
 ### ✨ Funcionalidades
