@@ -24,6 +24,18 @@
 - Verifique se as alterações arquiteturais ou de interface criaram a necessidade de atualizar instruções, pré-requisitos ou comandos.
 - O README é a porta de entrada do usuário final; nunca deixe a documentação ficar obsoleta em relação ao código.
 
-## 5. Consulta Rápida
+## 5. Ciclo de Vida da Tarefa (GitHub Projects)
+**O Agente Executor tem a responsabilidade de garantir (ou solicitar) que o card da Issue acompanhe a fase correta no board:**
+- **To Refine**: Tarefa recém-criada, sem plano.
+- **In Refinement**: Durante a discussão de regras de negócio.
+- **Tech Refinement**: Criação do ADR (`docs/ADR/PIC-X.md`) e planejamento técnico.
+- **Backlog**: Plano aceito pelo usuário. Pronta para execução.
+- **In Progress**: Execução iniciada (branch criada). **NOTA**: A tarefa permanece em `In Progress` durante toda a criação da PR e revisões (mesmo com solicitações de mudança).
+- **QA**: **SOMENTE** após a PR ser mergeada na branch `develop` (via automação ou manualmente).
+
+Se o agente não tiver permissões ou IDs do GraphQL para mover o card via CLI, ele **DEVE** informar ao usuário o status atual em que o card deveria estar e pedir explicitamente para o usuário movê-lo no painel.
+
+## 6. Consulta Rápida
 Se tiver dúvidas sobre o processo completo (como draft releases e rc), consulte o documento oficial de arquitetura em `docs/ADR/PIC-1.md`.
+
 
