@@ -72,8 +72,6 @@
     "electron-builder": "^25.0.0",
     "husky": "^9.1.7",
     "semantic-release": "^25.0.9"
-  },
-  "overrides": {
-    "conventional-changelog-writer": "^9.0.0"
   }
 }
+
