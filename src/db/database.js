@@ -11,7 +11,7 @@ const path = require('path');
 require('dotenv').config();
 
 let dbPath = '';
-let dbData = { alunos: [], log_scraping: [], _nextAlunoId: 1, _nextLogId: 1 };
+let dbData = { alunos: [], log_scraping: [], configuracoes: {}, _nextAlunoId: 1, _nextLogId: 1 };
 let dbInitialized = false;
 
 /**
@@ -319,6 +319,30 @@ function closeDatabase() {
   console.log('[DB] Conexão JSON fechada.');
 }
 
+// ============================================================
+// Configurações Globais
+// ============================================================
+
+function getConfiguracoes() {
+  return dbData.configuracoes || {};
+}
+
+function salvarConfiguracoes(novasConfiguracoes) {
+  if (!dbData.configuracoes) {
+    dbData.configuracoes = {};
+  }
+  
+  if (novasConfiguracoes.escolaNome !== undefined) {
+    dbData.configuracoes.escolaNome = novasConfiguracoes.escolaNome;
+  }
+  if (novasConfiguracoes.escolaLogo !== undefined) {
+    dbData.configuracoes.escolaLogo = novasConfiguracoes.escolaLogo;
+  }
+  
+  saveDb();
+  return dbData.configuracoes;
+}
+
 module.exports = {
   initDatabase,
   closeDatabase,
@@ -336,4 +360,6 @@ module.exports = {
   atualizarLogScraping,
   getUltimoLogScraping,
   getUltimaEstimativaSincronizacao,
+  getConfiguracoes,
+  salvarConfiguracoes,
 };
