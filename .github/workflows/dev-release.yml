@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Electron (if new release)
         if: steps.semantic.outcome == 'success'
-        run: npm run build -- --publish always
+        run: npm run build -- --publish always -c.publish.releaseType=prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
