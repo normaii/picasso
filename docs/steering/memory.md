@@ -13,9 +13,11 @@
 - [1. Visão Geral](#1-visão-geral)
 - [2. Arquitetura de Alto Nível](#2-arquitetura-de-alto-nível)
 - [3. Módulos do Sistema](#3-módulos-do-sistema)
-- [4. Branching Model e Versionamento](#4-branching-model-e-versionamento)
-- [5. Fluxo de Desenvolvimento](#5-fluxo-de-desenvolvimento)
-- [6. Registro de Decisões Ativas](#6-registro-de-decisões-ativas)
+- [4. Guardrails de Desenvolvimento](#4-guardrails-de-desenvolvimento)
+- [5. Branching Model e Versionamento](#5-branching-model-e-versionamento)
+- [6. Ciclo de Vida das Tarefas](#6-ciclo-de-vida-das-tarefas)
+- [7. Fluxo de Desenvolvimento](#7-fluxo-de-desenvolvimento)
+- [8. Registro de Decisões Ativas](#8-registro-de-decisões-ativas)
 
 ---
 
@@ -112,64 +114,196 @@ Gera PDFs A4 com carteirinhas dos alunos.
 
 ---
 
-## 4. Branching Model e Versionamento
+## 4. Guardrails de Desenvolvimento
 
-> [!WARNING]
-> **Em refinamento** — Ver [PIC-1](ADR/PIC-1.md) para o ADR em discussão.
+> **Ref**: [PIC-1](ADR/PIC-1.md) — Decisões D3, D6
 
-### Estado atual (Alpha)
+Estas regras são **obrigatórias** para todo desenvolvedor e agente de IA que trabalhe no projeto Picasso.
+
+### 4.1 Conventional Commits (Obrigatório)
+
+Todo commit deve seguir o formato: `<type>(<scope>): <description>`
+
+| Tipo | Significado | Gera bump? |
+|------|-------------|------------|
+| `feat` | Nova funcionalidade | ✅ Minor |
+| `fix` | Correção de bug | ✅ Patch |
+| `docs` | Documentação | ❌ |
+| `style` | Formatação | ❌ |
+| `refactor` | Refatoração | ❌ |
+| `perf` | Performance | ✅ Patch |
+| `test` | Testes | ❌ |
+| `chore` | Manutenção | ❌ |
+| `ci` | CI/CD | ❌ |
+
+- **Enforcement local**: `commitlint` + `husky` (pre-commit hook)
+- **Enforcement remoto**: CI valida formato do commit
+
+### 4.2 Documentação obrigatória por tarefa
+
+1. **Antes de codar**: Criar ou atualizar o ADR `docs/ADR/PIC-####.md` com contexto, decisão e especificações técnicas
+2. **Após merge em develop**: Atualizar `docs/steering/memory.md` com as mudanças aplicadas
+3. **Lack of specification**: Se um agente IA não encontra informação neste Steering Memory, trata-se de uma lacuna de especificação. O agente deve criar a especificação no ADR vigente e incluí-la aqui
+
+### 4.3 Branches de trabalho
+
+- Toda tarefa deve ser desenvolvida em uma branch `feature/PIC-####` criada a partir de `develop`
+- Correções críticas de produção usam branches `hotfix/PIC-####`
+- **Nunca commitar diretamente em `master`, `release` ou `develop`**
+
+### 4.4 Movimentação de status
+
+O desenvolvedor/agente é responsável por atualizar o status da tarefa no GitHub Projects conforme progride no ciclo de vida (ver seção 6).
+
+---
+
+## 5. Branching Model e Versionamento
+
+> **Ref**: [PIC-1](ADR/PIC-1.md) — Decisões D1, D2, D5
+> **Supercede**: [ADR-018 (Alpha Baseline)](ADR/ADR-ALPHA-BASELINE.md#adr-018)
+
+### 5.1 Branches
 
 ```mermaid
 gitGraph
-    commit id: "v0.0.10 alpha final" tag: "v0.0.10"
-    branch develop
-    commit id: "feature work"
+    commit id: "v0.0.10 (alpha final)" tag: "v0.0.10"
+    branch develop order: 1
+    commit id: "sync"
+    branch feature/PIC-1 order: 2
+    commit id: "feat: versioning"
+    checkout develop
+    merge feature/PIC-1 id: "PR → develop" tag: "v0.1.0-dev.1"
+    branch release order: 3
+    commit id: "promote to UAT" tag: "v0.1.0-rc.1"
     checkout main
-    merge develop id: "PR merge"
+    merge release id: "promote to prod" tag: "v0.1.0"
+    checkout develop
+    merge main id: "merge-back"
 ```
 
-### Branches existentes
-- `master` — produção estável (default)
-- `develop` — integração contínua
+| Branch | Propósito | Recebe PRs de | Publica? |
+|--------|-----------|---------------|----------|
+| `master` | Produção estável | `release`, `hotfix/*` | ✅ Release **latest** |
+| `release` | UAT (testes de usuário) | `develop`, `hotfix/*` | ✅ Pre-release pública |
+| `develop` | Integração dev | `feature/*`, `hotfix/*` | ✅ Draft release (invisível) |
+| `feature/PIC-####` | Trabalho por tarefa | — | ❌ Apenas CI |
+| `hotfix/PIC-####` | Correção crítica | — | ❌ Apenas CI |
 
-### Branching model proposto (a definir em PIC-1)
-- `feature/PIC-####` — branches de trabalho por tarefa
-- `hotfix/PIC-####` — correções críticas de produção
-- `release` — staging/UAT (a criar)
-- Regras de incremento de versão por branch — **pendente**
-- Merge-back automático master → develop — **pendente**
+### 5.2 Versionamento
+
+Formato: `MAJOR.MINOR.PATCH[-sufixo.N]`
+
+| Ambiente | Sufixo | Exemplo | Visibilidade |
+|----------|--------|---------|--------------|
+| Desenvolvimento | `-dev.N` | `0.2.0-dev.3` | Draft (somente devs) |
+| UAT | `-rc.N` | `0.2.0-rc.1` | Pre-release (testers) |
+| Produção | Nenhum | `0.2.0` | Latest (todos) |
+
+### 5.3 CI/CD (GitHub Actions)
+
+| Arquivo | Trigger | Função |
+|---------|---------|--------|
+| `ci.yml` | PRs para `develop`, `release`, `master` | Validação de build + check de branch de origem |
+| `dev-release.yml` | Merge em `develop` | semantic-release → **Draft release** |
+| `uat-release.yml` | Merge em `release` | semantic-release → **Pre-release** + merge-back → develop |
+| `release.yml` | Merge em `master` | semantic-release → **Latest release** + merge-back → develop |
+
+### 5.4 Changelog
+
+O `CHANGELOG.md` na raiz do repositório é atualizado automaticamente pelo `semantic-release` a cada release. É a fonte única de verdade para "o que mudou em cada versão".
 
 ---
 
-## 5. Fluxo de Desenvolvimento
+## 6. Ciclo de Vida das Tarefas
 
-A partir da v0.0.10, o fluxo de desenvolvimento segue estas etapas:
+> **Ref**: [PIC-1](ADR/PIC-1.md) — Decisão D6
+
+### 6.1 Fluxo de status
+
+```mermaid
+flowchart LR
+    subgraph Upstream
+        TR["To Refine"] --> IR["In Refinement"]
+        IR --> TRF["Tech Refinement"]
+        TRF --> BL["Backlog"]
+    end
+
+    subgraph Downstream
+        BL --> IP["In Progress"]
+        IP --> QA["QA"]
+        QA --> UAT["UAT"]
+        UAT --> DN["Done"]
+        DN --> CP["Completed"]
+    end
+```
+
+### 6.2 Definição de cada status
+
+| Status | Fase | O que acontece aqui | Entrada | Saída |
+|--------|------|---------------------|---------|-------|
+| **To Refine** | Upstream | Issue criada, aguardando refinamento de produto | Issue aberta com contexto mínimo | Objetivos e escopo definidos |
+| **In Refinement** | Upstream | Refinamento de produto: objetivos, critérios de aceite | Objetivos claros | Decisões de produto documentadas |
+| **Tech Refinement** | Upstream | Refinamento técnico: como será executado | Decisões de produto finalizadas | ADR criado com especificações técnicas |
+| **Backlog** | Transição | Tarefa refinada, pronta para execução (DOR) | ADR aprovado | Dev/agente inicia execução |
+| **In Progress** | Downstream | Implementação: branch criada, código sendo escrito | Branch `feature/PIC-####` criada | PR aberto para `develop` |
+| **QA** | Downstream | Testes do dev/QA, validações manuais | PR aberto, CI passando | PR merged em `develop`, draft release gerada |
+| **UAT** | Downstream | Testes de usuário final | PR merged em `release`, pre-release publicada | Usuário aprova |
+| **Done** | Downstream | Aprovado, aguardando release de produção | Aprovação do usuário | PR `release` → `master` merged |
+| **Completed** | Downstream | Release integrada à produção | Latest release publicada | — (estado terminal) |
+
+### 6.3 Visualizações no GitHub Projects
+
+| View | Status visíveis | Propósito |
+|------|----------------|-----------|
+| **Upstream** | To Refine → In Refinement → Tech Refinement → Backlog | Planejamento |
+| **Downstream** | Backlog → In Progress → QA → UAT → Done → Completed | Execução |
+
+> **Pendência futura**: Definir tratamento para tarefas em "Completed" após um período (arquivamento ou view de histórico).
+
+---
+
+## 7. Fluxo de Desenvolvimento
+
+Visão unificada do ciclo completo de uma tarefa, do inception à produção:
 
 ```mermaid
 flowchart TD
-    A["Issue criada no GitHub Project (PIC-####)"] --> B["Criar branch feature/PIC-####"]
-    B --> C["Criar/Atualizar ADR docs/ADR/PIC-####.md"]
-    C --> D["Desenvolver a feature"]
-    D --> E["PR feature → develop"]
-    E --> F["Review + Merge"]
-    F --> G["Atualizar Steering Memory"]
-    G --> H{"Pronto para release?"}
-    H -->|Sim| I["PR develop → release/master"]
-    H -->|Não| A
+    A["Issue criada no GitHub Project"] -->|To Refine| B["Refinamento de produto"]
+    B -->|In Refinement| C["Definir objetivos, escopo, critérios de aceite"]
+    C -->|Tech Refinement| D["Criar ADR docs/ADR/PIC-####.md"]
+    D -->|Backlog| E["Criar branch feature/PIC-####"]
+    E -->|In Progress| F["Desenvolver seguindo ADR"]
+    F --> G["Abrir PR feature → develop"]
+    G -->|QA| H["CI valida + testes manuais"]
+    H --> I["Merge em develop → draft release"]
+    I --> J["Atualizar Steering Memory"]
+    J -->|UAT| K["PR develop → release"]
+    K --> L["Pre-release publicada"]
+    L --> M["Usuário testa"]
+    M -->|Done| N["PR release → master"]
+    N -->|Completed| O["Latest release publicada"]
+    O --> P["Merge-back automático → develop"]
 ```
-
-### Regras de documentação
-1. **Antes de codar**: Criar o ADR `docs/ADR/PIC-####.md` com contexto e decisão
-2. **Após merge**: Atualizar `docs/steering/memory.md` com as mudanças
-3. **Lack of specification**: Se um agente IA não encontra info no Steering Memory, deve criar a especificação no ADR vigente e atualizar este documento
 
 ---
 
-## 6. Registro de Decisões Ativas
+## 8. Registro de Decisões Ativas
 
 | Chave | Título | Status | ADR |
 |-------|--------|--------|-----|
-| PIC-1 | Esquema de versionamento e branching model | 🔄 Em Discussão | [PIC-1.md](ADR/PIC-1.md) |
+| PIC-1 | Versionamento, Branching e CI/CD | ✅ Aceito | [PIC-1.md](ADR/PIC-1.md) |
+
+### Backlog de decisões futuras
+
+| Chave | Título | Status | Issue |
+|-------|--------|--------|-------|
+| PIC-2 | Configurações Multi-escola | 🔮 To Refine | [#7](https://github.com/normaii/picasso/issues/7) |
+| PIC-3 | Expurgo de Dados (LGPD) | 🔮 To Refine | [#8](https://github.com/normaii/picasso/issues/8) |
+| PIC-4 | Redesign Layout Paisagem V2 | 🔮 To Refine | [#9](https://github.com/normaii/picasso/issues/9) |
+| PIC-5 | Update Checker Passivo | 🔮 To Refine | [#10](https://github.com/normaii/picasso/issues/10) |
+| PIC-6 | Interface Amigável de Importação | 🔮 To Refine | [#11](https://github.com/normaii/picasso/issues/11) |
+| PIC-7 | Persistência Criptografada de Sessão | 🔮 To Refine | [#12](https://github.com/normaii/picasso/issues/12) |
+| PIC-8 | Painel de Versão e Canais de Atualização | 🔮 To Refine | [#13](https://github.com/normaii/picasso/issues/13) |
 
 ### Histórico Alpha (Congelado)
 
@@ -181,4 +315,6 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-19 | PIC-1: Adicionadas seções 4 (Guardrails), reescrita seções 5 (Branching/Versioning), 6 (Ciclo de Vida), 7 (Fluxo de Dev) e 8 (Registro com backlog completo). |
 | 2026-09-17 | Criação do documento. Consolidação de todos os módulos a partir do ADR Alpha Baseline (v0.0.10). |
+
