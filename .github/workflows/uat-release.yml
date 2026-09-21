@@ -1,9 +1,9 @@
-name: Production Release
+name: UAT Release (Pre-release)
 
 on:
   push:
     branches:
-      - master
+      - release
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -67,17 +67,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Merge-back master → develop
+      - name: Merge-back release → develop
         run: |
-          git fetch origin develop master
+          git fetch origin develop release
           git checkout develop
-          git merge origin/master --no-edit || {
+          git merge origin/release --no-edit || {
             echo "::warning::Merge-back falhou — conflito detectado. Criando PR de merge-back."
             git merge --abort
             gh pr create \
               --base develop \
-              --head master \
-              --title "chore: merge-back master → develop (conflito)" \
+              --head release \
+              --title "chore: merge-back release → develop (conflito)" \
               --body "⚠️ Merge-back automático falhou por conflito. Resolva manualmente." \
               --label "chore"
             exit 0

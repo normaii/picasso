@@ -1,6 +1,14 @@
-# Picasso — Architecture Decision Records (ADR)
+> [!CAUTION]
+> **📦 DOCUMENTO HISTÓRICO — CONGELADO NA v0.0.10 (Alpha Final)**
+> Este ADR monolítico serviu como base para toda a fase Alpha do projeto Picasso (v0.0.1 → v0.0.10).
+> A partir desta versão, novas decisões arquiteturais são documentadas como **ADRs individuais por tarefa** na pasta `docs/ADR/`, seguindo a chave do GitHub Project (ex: `PIC-1.md`).
+> Consulte o [Steering Memory](../steering/memory.md) para a visão consolidada e atualizada do projeto.
 
-Documento de registro de todas as decisões arquiteturais e de design tomadas no projeto Picasso.
+---
+
+# Picasso — Architecture Decision Records (ADR) — Alpha Baseline
+
+Documento de registro de todas as decisões arquiteturais e de design tomadas durante a fase Alpha do projeto Picasso.
 
 > **Formato**: Cada ADR segue o padrão: **Contexto** → **Decisão** → **Justificativa** → **Consequências**
 
