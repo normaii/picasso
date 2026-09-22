@@ -28,6 +28,8 @@ const {
   getPhotoFetchStatus,
 } = require('../scraper/photoFetcher');
 
+const { escapeHtml, validateLogoUrl } = require('../utils/security');
+
 // ============================================================
 // Alunos
 // ============================================================
@@ -115,7 +117,28 @@ router.get('/config', (req, res) => {
  */
 router.post('/config', (req, res) => {
   try {
-    const novasConfiguracoes = req.body;
+    let { escolaNome, escolaLogo } = req.body;
+
+    // Validação do Nome da Escola
+    if (typeof escolaNome === 'string') {
+      escolaNome = escolaNome.trim();
+    }
+    
+    if (!escolaNome) {
+      return res.status(400).json({ erro: 'O nome da escola é obrigatório e não pode ser vazio.' });
+    }
+
+    // Validação da Logo
+    if (!validateLogoUrl(escolaLogo)) {
+      return res.status(400).json({ erro: 'A URL da logo informada não é segura ou possui um formato inválido.' });
+    }
+
+    // Sanitização e Persistência
+    const novasConfiguracoes = {
+      escolaNome: escapeHtml(escolaNome),
+      escolaLogo: escapeHtml(escolaLogo)
+    };
+
     const atualizadas = salvarConfiguracoes(novasConfiguracoes);
     res.json({ mensagem: 'Configurações salvas com sucesso.', configuracoes: atualizadas });
   } catch (error) {

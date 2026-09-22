@@ -2,6 +2,7 @@ const { BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { getAlunosPorTurma } = require('../db/database'); // Precisamos implementar isso se não existir, ou usar buscarAlunos
+const { escapeHtml } = require('../utils/security');
 
 /**
  * Resolve a imagem do aluno para data URI (base64) para renderização garantida no PDF.
@@ -68,14 +69,14 @@ function buildHtmlForStudents(alunos, escolaNome, logoUrl) {
       
       const dataStr = new Date().toLocaleDateString('pt-BR');
 
-      cardStr = cardStr.replace(/{{ESCOLA_NOME}}/g, escolaNome);
-      cardStr = cardStr.replace(/{{LOGO_URL}}/g, logoFinal);
+      cardStr = cardStr.replace(/{{ESCOLA_NOME}}/g, escapeHtml(escolaNome));
+      cardStr = cardStr.replace(/{{LOGO_URL}}/g, escapeHtml(logoFinal));
       cardStr = cardStr.replace(/{{ANO}}/g, ano);
       cardStr = cardStr.replace(/{{FOTO_URL}}/g, fotoUrl);
-      cardStr = cardStr.replace(/{{NOME}}/g, aluno.nome);
-      cardStr = cardStr.replace(/{{MATRICULA}}/g, aluno.matricula);
-      cardStr = cardStr.replace(/{{TURMA}}/g, aluno.turma_nome);
-      cardStr = cardStr.replace(/{{DATA_EMISSAO}}/g, dataStr);
+      cardStr = cardStr.replace(/{{NOME}}/g, escapeHtml(aluno.nome));
+      cardStr = cardStr.replace(/{{MATRICULA}}/g, escapeHtml(aluno.matricula));
+      cardStr = cardStr.replace(/{{TURMA}}/g, escapeHtml(aluno.turma_nome));
+      cardStr = cardStr.replace(/{{DATA_EMISSAO}}/g, escapeHtml(dataStr));
 
       pageCardsHtml += cardStr;
     }

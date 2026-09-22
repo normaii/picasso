@@ -294,6 +294,7 @@ flowchart TD
 |-------|--------|--------|-----|
 | PIC-1 | Versionamento, Branching e CI/CD | ✅ Aceito | [PIC-1.md](ADR/PIC-1.md) |
 | PIC-2 | Configurações Multi-escola | ✅ Aceito | [PIC-2.md](ADR/PIC-2.md) |
+| PIC-28| Mitigação de XSS e Validação | ✅ Aceito | [PIC-28.md](ADR/PIC-28.md) |
 
 ### Backlog de decisões futuras
 
@@ -316,6 +317,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-22 | PIC-28: Mitigação de XSS, Sanitização e Defense in Depth no Gerador de PDF. |
 | 2026-09-21 | PIC-2: Módulo de Armazenamento atualizado para incluir objeto `configuracoes`. Registro de decisões atualizado. |
 | 2026-09-19 | PIC-1: Adicionadas seções 4 (Guardrails), reescrita seções 5 (Branching/Versioning), 6 (Ciclo de Vida), 7 (Fluxo de Dev) e 8 (Registro com backlog completo). |
 | 2026-09-17 | Criação do documento. Consolidação de todos os módulos a partir do ADR Alpha Baseline (v0.0.10). |

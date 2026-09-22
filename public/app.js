@@ -148,7 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           alert('Configurações salvas com sucesso!');
         } else {
-          alert('Erro ao salvar as configurações.');
+          const errData = await res.json();
+          alert(errData.erro || 'Erro ao salvar as configurações.');
         }
       } catch (err) {
         alert('Erro de comunicação ao salvar configurações.');
