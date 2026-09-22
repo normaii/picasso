@@ -108,9 +108,9 @@ Gera PDFs A4 com carteirinhas dos alunos.
 
 ### 3.5 Armazenamento (JSON DB)
 
-- **Comportamento atual**: Arquivo JSON simples lido inteiramente em memória ao iniciar. Salvamento síncrono a cada mutação.
+- **Comportamento atual**: Arquivo JSON simples lido inteiramente em memória ao iniciar. Salvamento síncrono a cada mutação. O banco gerencia as tabelas de `alunos`, `log_scraping` e `configuracoes` globais.
 - **Localização**: `%APPDATA%/picasso/data/picasso_db.json`
-- **Ref**: [ADR-004](ADR/ADR-ALPHA-BASELINE.md#adr-004)
+- **Ref**: [ADR-004](ADR/ADR-ALPHA-BASELINE.md#adr-004), [PIC-2](ADR/PIC-2.md)
 
 ---
 
@@ -292,12 +292,12 @@ flowchart TD
 | Chave | Título | Status | ADR |
 |-------|--------|--------|-----|
 | PIC-1 | Versionamento, Branching e CI/CD | ✅ Aceito | [PIC-1.md](ADR/PIC-1.md) |
+| PIC-2 | Configurações Multi-escola | ✅ Aceito | [PIC-2.md](ADR/PIC-2.md) |
 
 ### Backlog de decisões futuras
 
 | Chave | Título | Status | Issue |
 |-------|--------|--------|-------|
-| PIC-2 | Configurações Multi-escola | 🔮 To Refine | [#7](https://github.com/normaii/picasso/issues/7) |
 | PIC-3 | Expurgo de Dados (LGPD) | 🔮 To Refine | [#8](https://github.com/normaii/picasso/issues/8) |
 | PIC-4 | Redesign Layout Paisagem V2 | 🔮 To Refine | [#9](https://github.com/normaii/picasso/issues/9) |
 | PIC-5 | Update Checker Passivo | 🔮 To Refine | [#10](https://github.com/normaii/picasso/issues/10) |
@@ -315,6 +315,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-21 | PIC-2: Módulo de Armazenamento atualizado para incluir objeto `configuracoes`. Registro de decisões atualizado. |
 | 2026-09-19 | PIC-1: Adicionadas seções 4 (Guardrails), reescrita seções 5 (Branching/Versioning), 6 (Ciclo de Vida), 7 (Fluxo de Dev) e 8 (Registro com backlog completo). |
 | 2026-09-17 | Criação do documento. Consolidação de todos os módulos a partir do ADR Alpha Baseline (v0.0.10). |
 

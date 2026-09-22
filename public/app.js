@@ -116,18 +116,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputEscolaNome = document.getElementById('escola-nome');
   const inputEscolaLogo = document.getElementById('escola-logo');
 
-  const storedNome = localStorage.getItem('escolaNome');
-  const storedLogo = localStorage.getItem('escolaLogo');
-  
-  if (inputEscolaNome && storedNome) inputEscolaNome.value = storedNome;
-  if (inputEscolaLogo && storedLogo) inputEscolaLogo.value = storedLogo;
+  async function carregarConfiguracoes() {
+    try {
+      const res = await fetch('http://localhost:3000/api/config');
+      if (res.ok) {
+        const config = await res.json();
+        if (inputEscolaNome && config.escolaNome) inputEscolaNome.value = config.escolaNome;
+        if (inputEscolaLogo && config.escolaLogo) inputEscolaLogo.value = config.escolaLogo;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar configurações da API:', e);
+    }
+  }
 
   if (formConfig) {
-    formConfig.addEventListener('submit', (e) => {
+    formConfig.addEventListener('submit', async (e) => {
       e.preventDefault();
-      localStorage.setItem('escolaNome', inputEscolaNome.value);
-      localStorage.setItem('escolaLogo', inputEscolaLogo.value);
-      alert('Configurações salvas com sucesso!');
+      
+      const novasConfigs = {
+        escolaNome: inputEscolaNome.value,
+        escolaLogo: inputEscolaLogo.value
+      };
+
+      try {
+        const res = await fetch('http://localhost:3000/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(novasConfigs)
+        });
+        
+        if (res.ok) {
+          alert('Configurações salvas com sucesso!');
+        } else {
+          alert('Erro ao salvar as configurações.');
+        }
+      } catch (err) {
+        alert('Erro de comunicação ao salvar configurações.');
+      }
     });
   }
 
@@ -794,9 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function iniciarGeracaoPDF(turma) {
-    const nome = localStorage.getItem('escolaNome') || 'Escola Padrão';
-    const logo = localStorage.getItem('escolaLogo') || '';
-
     if (bannerStatus) bannerStatus.style.display = 'flex';
     if (alertBanner) alertBanner.style.display = 'none';
     if (textStatus) textStatus.innerText = `Gerando PDF para a turma ${turma}...`;
@@ -805,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('http://localhost:3000/api/pdf/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turma, escolaNome: nome, logoUrl: logo })
+        body: JSON.stringify({ turma })
       });
       
       if (res.ok) {
@@ -853,4 +875,5 @@ document.addEventListener('DOMContentLoaded', () => {
   atualizarStatusHome();
   carregarDadosAdd();
   carregarDadosCdf();
+  carregarConfiguracoes();
 });

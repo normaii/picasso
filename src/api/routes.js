@@ -18,6 +18,8 @@ const {
   getUltimoLogScraping,
   getEstatisticasFotos,
   getUltimaEstimativaSincronizacao,
+  getConfiguracoes,
+  salvarConfiguracoes,
 } = require('../db/database');
 
 const {
@@ -86,6 +88,39 @@ router.get('/turmas', (req, res) => {
   } catch (error) {
     console.error('[API] Erro ao listar turmas:', error.message);
     res.status(500).json({ erro: 'Erro ao listar turmas.' });
+  }
+});
+
+// ============================================================
+// Configurações Globais
+// ============================================================
+
+/**
+ * GET /api/config
+ * Retorna as configurações globais da aplicação.
+ */
+router.get('/config', (req, res) => {
+  try {
+    const config = getConfiguracoes();
+    res.json(config);
+  } catch (error) {
+    console.error('[API] Erro ao buscar configurações:', error.message);
+    res.status(500).json({ erro: 'Erro ao buscar configurações.' });
+  }
+});
+
+/**
+ * POST /api/config
+ * Atualiza as configurações globais da aplicação.
+ */
+router.post('/config', (req, res) => {
+  try {
+    const novasConfiguracoes = req.body;
+    const atualizadas = salvarConfiguracoes(novasConfiguracoes);
+    res.json({ mensagem: 'Configurações salvas com sucesso.', configuracoes: atualizadas });
+  } catch (error) {
+    console.error('[API] Erro ao salvar configurações:', error.message);
+    res.status(500).json({ erro: 'Erro ao salvar configurações.' });
   }
 });
 
@@ -323,10 +358,14 @@ let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null
  */
 router.post('/pdf/gerar', async (req, res) => {
   try {
-    const { turma, escolaNome, logoUrl } = req.body;
-    if (!turma || !escolaNome) {
-      return res.status(400).json({ erro: 'Turma e Nome da Escola são obrigatórios.' });
+    const { turma } = req.body;
+    if (!turma) {
+      return res.status(400).json({ erro: 'O nome da turma é obrigatório.' });
     }
+
+    const config = getConfiguracoes();
+    const escolaNome = config.escolaNome || 'ESCOLA ESTADUAL';
+    const logoUrl = config.escolaLogo || '';
 
     pdfStatus = { status: 'processando', ultimaTurma: turma, arquivo: null, erro: null };
 
