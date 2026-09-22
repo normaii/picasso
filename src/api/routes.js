@@ -117,7 +117,7 @@ router.get('/config', (req, res) => {
  */
 router.post('/config', (req, res) => {
   try {
-    let { escolaNome, escolaLogo } = req.body;
+    let { escolaNome, escolaLogo } = req.body || {};
 
     // Validação estrita de tipo e preenchimento para escolaNome
     if (typeof escolaNome !== 'string') {

@@ -69,14 +69,14 @@ function buildHtmlForStudents(alunos, escolaNome, logoUrl) {
       
       const dataStr = new Date().toLocaleDateString('pt-BR');
 
-      cardStr = cardStr.replace(/{{ESCOLA_NOME}}/g, escapeHtml(escolaNome));
-      cardStr = cardStr.replace(/{{LOGO_URL}}/g, escapeHtml(logoFinal));
-      cardStr = cardStr.replace(/{{ANO}}/g, ano);
-      cardStr = cardStr.replace(/{{FOTO_URL}}/g, fotoUrl);
-      cardStr = cardStr.replace(/{{NOME}}/g, escapeHtml(aluno.nome));
-      cardStr = cardStr.replace(/{{MATRICULA}}/g, escapeHtml(aluno.matricula));
-      cardStr = cardStr.replace(/{{TURMA}}/g, escapeHtml(aluno.turma_nome));
-      cardStr = cardStr.replace(/{{DATA_EMISSAO}}/g, escapeHtml(dataStr));
+      cardStr = cardStr.replace(/{{ESCOLA_NOME}}/g, () => escapeHtml(escolaNome));
+      cardStr = cardStr.replace(/{{LOGO_URL}}/g, () => escapeHtml(logoFinal));
+      cardStr = cardStr.replace(/{{ANO}}/g, () => ano);
+      cardStr = cardStr.replace(/{{FOTO_URL}}/g, () => fotoUrl);
+      cardStr = cardStr.replace(/{{NOME}}/g, () => escapeHtml(aluno.nome));
+      cardStr = cardStr.replace(/{{MATRICULA}}/g, () => escapeHtml(aluno.matricula));
+      cardStr = cardStr.replace(/{{TURMA}}/g, () => escapeHtml(aluno.turma_nome));
+      cardStr = cardStr.replace(/{{DATA_EMISSAO}}/g, () => escapeHtml(dataStr));
 
       pageCardsHtml += cardStr;
     }
