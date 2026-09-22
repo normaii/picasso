@@ -4,6 +4,25 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.5](https://github.com/normaii/picasso/compare/v0.1.0-dev.4...v0.1.0-dev.5) (2026-09-22)
+
+### 🐛 Correções
+
+* mitiga vulnerabilidade XSS e adiciona validacoes ([bcfbeae](https://github.com/normaii/picasso/commit/bcfbeae3fe9e94a01b1def20c8350208eb968f5e))
+* resolve bugs do req.body vazio e substituicao de dollar sign ([6fba276](https://github.com/normaii/picasso/commit/6fba2769d5e5af415f7e4b8ded1b83db3bb22f95))
+* resolve double encoding e validacao de tipo apontados pelo copilot ([ee41855](https://github.com/normaii/picasso/commit/ee4185594504782d56d45003cc398f359e9ec96d))
+
+### 📚 Documentação
+
+* adiciona PIC-33 ao backlog no memory.md ([1fd4e5e](https://github.com/normaii/picasso/commit/1fd4e5e6cb464a55a8e9152d18c91352dea5d171))
+* refinamento tecnico da issue 25 (PIC-13) ([96a2c6f](https://github.com/normaii/picasso/commit/96a2c6fff08d1c1a920e38c1388cb56a612bef65))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.4](https://github.com/normaii/picasso/compare/v0.1.0-dev.3...v0.1.0-dev.4) (2026-09-22)
 
 ### ✨ Funcionalidades
