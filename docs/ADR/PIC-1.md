@@ -189,6 +189,7 @@ flowchart LR
 | `dev-release.yml` | Push/merge em `develop` | semantic-release (dev) + electron-builder → **Draft release** |
 | `uat-release.yml` | Push/merge em `release` | semantic-release (rc) + electron-builder → **Pre-release** + merge-back → develop |
 | `release.yml` | Push/merge em `master` | semantic-release (prod) + electron-builder → **Latest release** + merge-back → develop |
+| `chatops.yml` | `issue_comment` (PR) | Automação de auto-merge squash quando comentado `/aprovado` na PR |
 
 #### Merge-back automático
 

@@ -207,6 +207,7 @@ Formato: `MAJOR.MINOR.PATCH[-sufixo.N]`
 | `dev-release.yml` | Merge em `develop` | semantic-release → **Draft release** |
 | `uat-release.yml` | Merge em `release` | semantic-release → **Pre-release** + merge-back → develop |
 | `release.yml` | Merge em `master` | semantic-release → **Latest release** + merge-back → develop |
+| `chatops.yml` | Comentário em PR | Auto-merge automático via comando `/aprovado` |
 
 ### 5.4 Changelog
 
