@@ -4,6 +4,24 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.4](https://github.com/normaii/picasso/compare/v0.1.0-dev.3...v0.1.0-dev.4) (2026-09-22)
+
+### ✨ Funcionalidades
+
+* **PIC-2:** implementar configuracoes multi-escola ([e7306c2](https://github.com/normaii/picasso/commit/e7306c2d4d174d240e848672b8f4727608beda46))
+
+### 📚 Documentação
+
+* adicionar regra obrigatoria de revisao do README ([a6ea963](https://github.com/normaii/picasso/commit/a6ea963182f671b299d88bb5dbbed8d1047ebe6b))
+* adicionar regra sobre status das tarefas no github projects ([8adb0e3](https://github.com/normaii/picasso/commit/8adb0e3b64dac9e9b7308031bab1a975fb9a86cf))
+* **PIC-2:** registrar ADR e atualizar steering memory ([71dbea8](https://github.com/normaii/picasso/commit/71dbea894723014b370e241cfbd041ddfc3d2230))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-rc.2](https://github.com/normaii/picasso/compare/v0.1.0-rc.1...v0.1.0-rc.2) (2026-09-21)
 
 ### 🐛 Correções
