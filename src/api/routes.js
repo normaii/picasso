@@ -119,24 +119,27 @@ router.post('/config', (req, res) => {
   try {
     let { escolaNome, escolaLogo } = req.body;
 
-    // Validação do Nome da Escola
-    if (typeof escolaNome === 'string') {
-      escolaNome = escolaNome.trim();
+    // Validação estrita de tipo e preenchimento para escolaNome
+    if (typeof escolaNome !== 'string') {
+      return res.status(400).json({ erro: 'O nome da escola deve ser um texto válido.' });
     }
-    
+    escolaNome = escolaNome.trim();
     if (!escolaNome) {
       return res.status(400).json({ erro: 'O nome da escola é obrigatório e não pode ser vazio.' });
     }
 
-    // Validação da Logo
+    // Validação estrita de tipo e formato para escolaLogo
+    if (escolaLogo !== undefined && typeof escolaLogo !== 'string') {
+      return res.status(400).json({ erro: 'A logo da escola deve ser um texto válido.' });
+    }
     if (!validateLogoUrl(escolaLogo)) {
       return res.status(400).json({ erro: 'A URL da logo informada não é segura ou possui um formato inválido.' });
     }
 
-    // Sanitização e Persistência
+    // Persistência sem dupla sanitização (Escape ocorre no pdfGenerator.js no momento do output)
     const novasConfiguracoes = {
-      escolaNome: escapeHtml(escolaNome),
-      escolaLogo: escapeHtml(escolaLogo)
+      escolaNome: escolaNome,
+      escolaLogo: escolaLogo ? escolaLogo.trim() : ''
     };
 
     const atualizadas = salvarConfiguracoes(novasConfiguracoes);

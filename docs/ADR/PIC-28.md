@@ -10,10 +10,8 @@ Se um texto malicioso como `<script>alert('xss')</script>` ou atributos de image
 
 - Criar um módulo utilitário de segurança (`src/utils/security.js`) com a função `escapeHtml()`, responsável por converter caracteres especiais (`<, >, &, ", '`) em `HTML Entities`.
 - Implementar a função `validateLogoUrl()` para evitar pseudo-protocolos como `javascript:` na inserção da logomarca.
-- Na API (`src/api/routes.js`), validar o campo `escolaNome` (trim) para impedir strings vazias ou nulas. Se for vazia, retornar HTTP 400 Bad Request.
-- **Defense in Depth (Defesa em Camadas)**: A sanitização (`escapeHtml`) será aplicada em **dois momentos**:
-  1. Durante a requisição `POST /api/config`, antes de salvar no banco local (garante que os dados no JSON estarão higienizados).
-  2. Dentro do `pdfGenerator.js`, logo antes da interpolação `replace()` final, em campos vitais como `nome`, `matricula` e `turma_nome`. Essa camada protege o PDF caso dados sejam manipulados manualmente ou por outras origens de dados.
+- Na API (`src/api/routes.js`), validar o tipo e o campo `escolaNome` (trim) para impedir strings vazias ou nulas, e garantir que apenas strings sejam salvas. Se for inválido, retornar HTTP 400 Bad Request.
+- **Sanitização no Output (Escape on Output)**: A sanitização (`escapeHtml`) não deve ocorrer na persistência do banco de dados, para evitar *double HTML encoding*. O escape será aplicado **apenas** dentro do `pdfGenerator.js`, logo antes da interpolação `replace()` final, em campos configuráveis e vitais como `escolaNome`, `logoUrl`, `nome`, `matricula` e `turma_nome`. Essa abordagem mantém a integridade dos dados puros no banco e protege a geração do PDF contra *code injection*.
 
 ## 3. Consequências
 
