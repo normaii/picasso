@@ -4,6 +4,24 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.6](https://github.com/normaii/picasso/compare/v0.1.0-dev.5...v0.1.0-dev.6) (2026-09-23)
+
+### 🐛 Correções
+
+* **PIC-33:** restringe chatops e corrige escopo da memory ([c64b8a5](https://github.com/normaii/picasso/commit/c64b8a5632f13bc7b9002af2fc5e051f63e09a95))
+
+### 📚 Documentação
+
+* Corrige apontamentos de caminhos e status (Copilot) ([b67809b](https://github.com/normaii/picasso/commit/b67809bc0f2161e02ebd6918f1d51077f30b96b1))
+* **PIC-33:** ADR e memory para refinamento técnico do chatops ([d58a96f](https://github.com/normaii/picasso/commit/d58a96f90e1bdcba10c344f047959059ad801218))
+* Refinamento Técnico PIC-3 (Arquivamento e Expurgo LGPD) ([0c6571a](https://github.com/normaii/picasso/commit/0c6571a46b2bb57542775b4980f57926245ba529))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.5](https://github.com/normaii/picasso/compare/v0.1.0-dev.4...v0.1.0-dev.5) (2026-09-22)
 
 ### 🐛 Correções

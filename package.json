@@ -1,6 +1,6 @@
 {
   "name": "picasso",
-  "version": "0.1.0-dev.5",
+  "version": "0.1.0-dev.6",
   "description": "Gerador de carteirinhas estudantis para a rede estadual do RJ",
   "main": "main.js",
   "scripts": {
