@@ -4,10 +4,14 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   auto-merge:
     # O comando só funciona se for feito em uma Pull Request e se a mensagem contiver o trigger exato.
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/aprovado') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/aprovado') && contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
     runs-on: ubuntu-latest
     steps:
       - name: Aprovar e Realizar Merge da PR

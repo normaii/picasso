@@ -13,8 +13,9 @@ A investigação revelou dois pontos de falha:
 ## Decisão
 Foi decidido corrigir o código na fonte de desenvolvimento atual, aceitando que a funcionalidade só estará disponível após o ciclo completo de release. As ações tomadas serão:
 1. **Adição de Permissões Explícitas:** Atualizar o arquivo `.github/workflows/chatops.yml` na branch `develop` para incluir o bloco de `permissions` com `pull-requests: write` e `contents: write`.
-2. **Sincronização Passiva:** Ao invés de forçar um hotfix direto na `master` ou alterar a *Default Branch* do projeto nas configurações do GitHub, a correção será mesclada na `develop` e seguirá o fluxo normal de desenvolvimento (GitFlow): da `develop` para uma branch de `release`, e finalmente para a `master`.
-3. **Paciência Operacional:** A Issue correspondente (#33) será marcada para fechamento condicional, amarrando a sua resolução à subida de versão para a `master`.
+2. **Verificação de Autorização:** Restringir o gatilho `/aprovado` para autores com associação autorizada no repositório (`OWNER`, `MEMBER` ou `COLLABORATOR`) antes de executar `gh pr merge`.
+3. **Sincronização Passiva:** Ao invés de forçar um hotfix direto na `master` ou alterar a *Default Branch* do projeto nas configurações do GitHub, a correção será mesclada na `develop` e seguirá o fluxo normal de desenvolvimento (GitFlow): da `develop` para uma branch de `release`, e finalmente para a `master`.
+4. **Paciência Operacional:** A Issue correspondente (#33) será marcada para fechamento condicional, amarrando a sua resolução à subida de versão para a `master`.
 
 ## Consequências
 - A automação `/aprovado` continuará indisponível durante o atual ciclo de desenvolvimento na `develop`.
