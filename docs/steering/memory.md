@@ -302,7 +302,7 @@ flowchart TD
 | Chave | Título | Status | Issue |
 |-------|--------|--------|-------|
 | PIC-13| Refatorar Motor de Espera Reativa (MutationObserver)| ✅ Planejado / Backlog | [#25](https://github.com/normaii/picasso/issues/25) |
-| PIC-33| Falha na automação ChatOps (/aprovado) | 🔮 To Refine | [#33](https://github.com/normaii/picasso/issues/33) |
+| PIC-33| Falha na automação ChatOps (/aprovado) | ✅ Aceito (Pendente de Dev) | [#33](https://github.com/normaii/picasso/issues/33) |
 | PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito (Pendente de Dev) | [#8](https://github.com/normaii/picasso/issues/8) |
 | PIC-5 | Update Checker Passivo | 🔮 To Refine | [#10](https://github.com/normaii/picasso/issues/10) |
 | PIC-6 | Interface Amigável de Importação | 🔮 To Refine | [#11](https://github.com/normaii/picasso/issues/11) |
