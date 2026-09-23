@@ -295,6 +295,7 @@ flowchart TD
 | PIC-1 | Versionamento, Branching e CI/CD | ✅ Aceito | [PIC-1.md](ADR/PIC-1.md) |
 | PIC-2 | Configurações Multi-escola | ✅ Aceito | [PIC-2.md](ADR/PIC-2.md) |
 | PIC-28| Mitigação de XSS e Validação | ✅ Aceito | [PIC-28.md](ADR/PIC-28.md) |
+| PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito | [PIC-3.md](ADR/PIC-3.md) |
 
 ### Backlog de decisões futuras
 
@@ -302,7 +303,7 @@ flowchart TD
 |-------|--------|--------|-------|
 | PIC-13| Refatorar Motor de Espera Reativa (MutationObserver)| ✅ Planejado / Backlog | [#25](https://github.com/normaii/picasso/issues/25) |
 | PIC-33| Falha na automação ChatOps (/aprovado) | 🔮 To Refine | [#33](https://github.com/normaii/picasso/issues/33) |
-| PIC-3 | Expurgo de Dados (LGPD) | 🔮 To Refine | [#8](https://github.com/normaii/picasso/issues/8) |
+| PIC-3 | Arquivamento de Dados (LGPD) | ✅ Planejado / Backlog | [#8](https://github.com/normaii/picasso/issues/8) |
 | PIC-5 | Update Checker Passivo | 🔮 To Refine | [#10](https://github.com/normaii/picasso/issues/10) |
 | PIC-6 | Interface Amigável de Importação | 🔮 To Refine | [#11](https://github.com/normaii/picasso/issues/11) |
 | PIC-7 | Persistência Criptografada de Sessão | 🔮 To Refine | [#12](https://github.com/normaii/picasso/issues/12) |
