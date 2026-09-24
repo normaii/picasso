@@ -347,7 +347,11 @@ function salvarConfiguracoes(novasConfiguracoes) {
 // Arquivamento e Expurgo (PIC-3)
 // ============================================================
 
+let isArchiving = false;
+function getIsArchiving() { return isArchiving; }
+
 function archiveAndPurge() {
+  isArchiving = true;
   const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   
@@ -405,31 +409,37 @@ function archiveAndPurge() {
     // === ROLLBACK COMPLETO ===
     // 1. Reverter JSON
     if (fs.existsSync(archivedDbPath)) {
-      fs.copyFileSync(archivedDbPath, currentDbPath);
-      dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
+      try {
+        fs.copyFileSync(archivedDbPath, currentDbPath);
+        dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
+      } catch (e) { console.error('Falha crítica no rollback do DB', e); }
     }
     // 2. Reverter fotos
     if (fotosRenamed && fs.existsSync(fotosTempDir)) {
       if (!fs.existsSync(fotosDir)) {
-        fs.renameSync(fotosTempDir, fotosDir);
+        try { fs.renameSync(fotosTempDir, fotosDir); } catch(e) {}
       }
     }
-    // 3. Reverter PDFs
+    // 3. Reverter PDFs com proteção contra falha em cascata
     for (const rename of pdfRenames) {
       if (fs.existsSync(rename.newPath)) {
-        fs.renameSync(rename.newPath, rename.oldPath);
+        try { fs.renameSync(rename.newPath, rename.oldPath); } catch(e) {}
       }
     }
+    isArchiving = false;
     throw error;
   }
 
-  // 5. Exclusão permanente física assíncrona (Fora da transação para ser crash-safe)
+  // 5. Exclusão permanente física síncrona (Crash-safe: se falhar, o diretório apenas fica órfão)
   if (fotosRenamed && fs.existsSync(fotosTempDir)) {
-    fs.rm(fotosTempDir, { recursive: true, force: true }, (err) => {
-      if (err) console.error('[Archive] Erro ao deletar pasta temp de fotos no background:', err);
-    });
+    try {
+      fs.rmSync(fotosTempDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
+    }
   }
 
+  isArchiving = false;
   return { success: true, timestamp };
 }
 
@@ -453,4 +463,5 @@ module.exports = {
   getConfiguracoes,
   salvarConfiguracoes,
   archiveAndPurge,
+  getIsArchiving,
 };

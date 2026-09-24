@@ -21,6 +21,7 @@ const {
   getConfiguracoes,
   salvarConfiguracoes,
   archiveAndPurge,
+  getIsArchiving,
 } = require('../db/database');
 
 const {
@@ -161,6 +162,10 @@ router.post('/config', (req, res) => {
  */
 router.post('/system/archive', (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'O arquivamento já está em andamento.' });
+    }
+
     const photoStatus = getPhotoFetchStatus();
     const lastScraping = getUltimoLogScraping();
     
@@ -236,6 +241,10 @@ router.post('/scraping/iniciar', async (req, res) => {
 
     if (!cookies || !Array.isArray(cookies)) {
       return res.status(400).json({ erro: 'Cookies de sessão não fornecidos.' });
+    }
+
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar scraping durante o encerramento do ciclo letivo.' });
     }
 
     // Inicia de forma assíncrona para não bloquear a requisição
