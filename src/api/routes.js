@@ -156,21 +156,30 @@ router.post('/config', (req, res) => {
 // Encerramento de Ciclo Letivo (PIC-3)
 // ============================================================
 
+const {
+  iniciarScraping,
+  requestCancel,
+  getIsScrapingRunning,
+} = require('../scraper/scraper');
+
 /**
  * POST /api/system/archive
  * Executa o Soft-Delete de Banco e PDFs e o Hard-Delete de Fotos.
  */
 router.post('/system/archive', (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey !== 'picasso-local-beta-key') {
+    return res.status(401).json({ erro: 'Não autorizado. Apenas o administrador do sistema pode realizar esta operação.' });
+  }
+
   try {
     if (getIsArchiving && getIsArchiving()) {
       return res.status(409).json({ erro: 'O arquivamento já está em andamento.' });
     }
 
     const photoStatus = getPhotoFetchStatus();
-    const lastScraping = getUltimoLogScraping();
     
-    const terminalStates = ['concluido', 'erro', 'cancelado'];
-    const isScrapingActive = lastScraping && !terminalStates.includes(lastScraping.status);
+    const isScrapingActive = getIsScrapingRunning();
     
     const photoTerminalStates = ['ocioso', 'concluido', 'erro', 'cancelado'];
     const isPhotosActive = photoStatus && !photoTerminalStates.includes(photoStatus.status);
@@ -180,7 +189,15 @@ router.post('/system/archive', (req, res) => {
     }
 
     const result = archiveAndPurge();
-    res.json({ mensagem: 'Encerramento de ciclo letivo concluído com sucesso.', detalhes: result });
+    if (result.warnings && result.warnings.length > 0) {
+      res.json({ 
+        mensagem: 'Encerramento de ciclo letivo concluído com alertas.', 
+        detalhes: result,
+        avisos: result.warnings 
+      });
+    } else {
+      res.json({ mensagem: 'Encerramento de ciclo letivo concluído com sucesso.', detalhes: result });
+    }
   } catch (error) {
     console.error('[API] Erro ao arquivar dados:', error);
     res.status(500).json({ erro: 'Erro interno ao realizar o expurgo de dados.' });
@@ -198,6 +215,10 @@ router.post('/system/archive', (req, res) => {
  */
 router.post('/gerar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
+    }
+
     const { ids } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -227,8 +248,6 @@ router.post('/gerar', async (req, res) => {
 // ============================================================
 // Scraping
 // ============================================================
-
-const { iniciarScraping, requestCancel } = require('../scraper/scraper');
 
 /**
  * POST /api/scraping/iniciar

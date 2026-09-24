@@ -54,7 +54,12 @@ async function waitAspNetReady(win) {
   return false;
 }
 
+let isScrapingRunning = false;
+function getIsScrapingRunning() { return isScrapingRunning; }
+
 async function iniciarScraping(cookies) {
+  if (isScrapingRunning) return;
+  isScrapingRunning = true;
   cancelRequested = false;
   const logId = criarLogScraping();
   let win = null;
@@ -497,6 +502,7 @@ async function iniciarScraping(cookies) {
       mensagem: error.message 
     });
   } finally {
+    isScrapingRunning = false;
     if (win) {
       win.close();
     }
@@ -507,4 +513,5 @@ module.exports = {
   iniciarScraping,
   requestCancel,
   isCancelled,
+  getIsScrapingRunning,
 };

@@ -57,6 +57,20 @@ function initDatabase() {
   
   dbInitialized = true;
   console.log(`[DB] Banco de dados JSON inicializado em: ${dbPath}`);
+
+  // Cleanup assíncrono de pastas temporárias zumbis do arquivamento (PIC-3)
+  const dataDir = path.dirname(dbPath);
+  fs.readdir(dataDir, (err, items) => {
+    if (err) return;
+    items.forEach(item => {
+      if (item.startsWith('fotos_temp_delete_')) {
+        const fullPath = path.join(dataDir, item);
+        fs.rm(fullPath, { recursive: true, force: true }, (err) => {
+          if (!err) console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
+        });
+      }
+    });
+  });
 }
 
 // ============================================================
@@ -432,16 +446,19 @@ function archiveAndPurge() {
       throw error;
     }
 
+    const warnings = [];
+
     // 5. Exclusão permanente física síncrona (Crash-safe)
     if (fotosRenamed && fs.existsSync(fotosTempDir)) {
       try {
         fs.rmSync(fotosTempDir, { recursive: true, force: true });
       } catch (err) {
         console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
+        warnings.push(`As fotos foram desvinculadas, mas ocorreu uma falha ao remover fisicamente do disco a pasta '${path.basename(fotosTempDir)}'.`);
       }
     }
 
-    return { success: true, timestamp };
+    return { success: true, timestamp, warnings };
   } finally {
     isArchiving = false;
   }

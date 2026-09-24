@@ -884,6 +884,7 @@ document.addEventListener('DOMContentLoaded', () => {
       inputPurgeConfirm.value = '';
       btnPurgeConfirm.disabled = true;
       modalPurge.style.display = 'flex';
+      setTimeout(() => inputPurgeConfirm.focus(), 100);
     });
 
     btnPurgeCancel.addEventListener('click', () => {
@@ -903,12 +904,21 @@ document.addEventListener('DOMContentLoaded', () => {
         btnPurgeConfirm.disabled = true;
         btnPurgeConfirm.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Processando...';
         
-        const res = await fetch('http://localhost:3000/api/system/archive', { method: 'POST' });
+        const res = await fetch('/api/system/archive', { 
+          method: 'POST',
+          headers: {
+            'x-admin-key': 'picasso-local-beta-key'
+          }
+        });
         const data = await res.json();
         
         if (res.ok) {
           modalPurge.style.display = 'none';
-          alert('Encerramento de ciclo letivo concluído com sucesso!');
+          if (data.avisos && data.avisos.length > 0) {
+            alert('Atenção: ' + data.avisos.join('\n'));
+          } else {
+            alert('Encerramento de ciclo letivo concluído com sucesso!');
+          }
           carregarDadosAdd();
           carregarDadosCdf();
           atualizarStatusHome();
