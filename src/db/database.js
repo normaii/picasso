@@ -351,96 +351,100 @@ let isArchiving = false;
 function getIsArchiving() { return isArchiving; }
 
 function archiveAndPurge() {
+  if (isArchiving) throw new Error('O arquivamento já está em andamento.');
   isArchiving = true;
-  const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   
-  // 1. Soft-Delete DB
-  const archiveDbDir = path.join(dataDir, 'archive_db');
-  if (!fs.existsSync(archiveDbDir)) {
-    fs.mkdirSync(archiveDbDir, { recursive: true });
-  }
-  const currentDbPath = getDbPath();
-  const archivedDbPath = path.join(archiveDbDir, `picasso_db_archived_${timestamp}.json`);
-  if (fs.existsSync(currentDbPath)) {
-    fs.copyFileSync(currentDbPath, archivedDbPath);
-  }
-
-  const pdfRenames = [];
-  let fotosRenamed = false;
-  const fotosDir = path.join(dataDir, 'fotos');
-  const fotosTempDir = path.join(dataDir, `fotos_temp_delete_${timestamp}`);
-
   try {
-    // 2. Soft-Delete PDFs (com tracking de renomeações)
-    const pdfsDir = path.join(dataDir, 'pdfs');
-    const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
-    const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     
-    if (fs.existsSync(pdfsDir)) {
-      if (!fs.existsSync(newArchiveFolder)) {
-        fs.mkdirSync(newArchiveFolder, { recursive: true });
-      }
-      
-      const items = fs.readdirSync(pdfsDir);
-      for (const item of items) {
-        if (item === 'archive_pdfs') continue;
-        const oldPath = path.join(pdfsDir, item);
-        const newPath = path.join(newArchiveFolder, item);
-        fs.renameSync(oldPath, newPath);
-        pdfRenames.push({ oldPath, newPath });
-      }
+    // 1. Soft-Delete DB
+    const archiveDbDir = path.join(dataDir, 'archive_db');
+    if (!fs.existsSync(archiveDbDir)) {
+      fs.mkdirSync(archiveDbDir, { recursive: true });
+    }
+    const currentDbPath = getDbPath();
+    const archivedDbPath = path.join(archiveDbDir, `picasso_db_archived_${timestamp}.json`);
+    if (fs.existsSync(currentDbPath)) {
+      fs.copyFileSync(currentDbPath, archivedDbPath);
     }
 
-    // 3. Hard-Delete Fotos (preparação com rename atômico para garantir consistência)
-    if (fs.existsSync(fotosDir)) {
-      fs.renameSync(fotosDir, fotosTempDir);
-      fotosRenamed = true;
-    }
+    const pdfRenames = [];
+    let fotosRenamed = false;
+    const fotosDir = path.join(dataDir, 'fotos');
+    const fotosTempDir = path.join(dataDir, `fotos_temp_delete_${timestamp}`);
 
-    // 4. Limpar Banco de Dados mantendo configurações globais
-    dbData.alunos = [];
-    dbData.log_scraping = [];
-    dbData._nextAlunoId = 1;
-    dbData._nextLogId = 1;
-    saveDb();
-    
-  } catch (error) {
-    // === ROLLBACK COMPLETO ===
-    // 1. Reverter JSON
-    if (fs.existsSync(archivedDbPath)) {
-      try {
-        fs.copyFileSync(archivedDbPath, currentDbPath);
-        dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
-      } catch (e) { console.error('Falha crítica no rollback do DB', e); }
-    }
-    // 2. Reverter fotos
-    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
-      if (!fs.existsSync(fotosDir)) {
-        try { fs.renameSync(fotosTempDir, fotosDir); } catch(e) {}
-      }
-    }
-    // 3. Reverter PDFs com proteção contra falha em cascata
-    for (const rename of pdfRenames) {
-      if (fs.existsSync(rename.newPath)) {
-        try { fs.renameSync(rename.newPath, rename.oldPath); } catch(e) {}
-      }
-    }
-    isArchiving = false;
-    throw error;
-  }
-
-  // 5. Exclusão permanente física síncrona (Crash-safe: se falhar, o diretório apenas fica órfão)
-  if (fotosRenamed && fs.existsSync(fotosTempDir)) {
     try {
-      fs.rmSync(fotosTempDir, { recursive: true, force: true });
-    } catch (err) {
-      console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
-    }
-  }
+      // 2. Soft-Delete PDFs (com tracking de renomeações)
+      const pdfsDir = path.join(dataDir, 'pdfs');
+      const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
+      const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
+      
+      if (fs.existsSync(pdfsDir)) {
+        if (!fs.existsSync(newArchiveFolder)) {
+          fs.mkdirSync(newArchiveFolder, { recursive: true });
+        }
+        
+        const items = fs.readdirSync(pdfsDir);
+        for (const item of items) {
+          if (item === 'archive_pdfs') continue;
+          const oldPath = path.join(pdfsDir, item);
+          const newPath = path.join(newArchiveFolder, item);
+          fs.renameSync(oldPath, newPath);
+          pdfRenames.push({ oldPath, newPath });
+        }
+      }
 
-  isArchiving = false;
-  return { success: true, timestamp };
+      // 3. Hard-Delete Fotos (preparação com rename atômico para garantir consistência)
+      if (fs.existsSync(fotosDir)) {
+        fs.renameSync(fotosDir, fotosTempDir);
+        fotosRenamed = true;
+      }
+
+      // 4. Limpar Banco de Dados mantendo configurações globais
+      dbData.alunos = [];
+      dbData.log_scraping = [];
+      dbData._nextAlunoId = 1;
+      dbData._nextLogId = 1;
+      saveDb();
+      
+    } catch (error) {
+      // === ROLLBACK COMPLETO ===
+      // 1. Reverter JSON
+      if (fs.existsSync(archivedDbPath)) {
+        try {
+          fs.copyFileSync(archivedDbPath, currentDbPath);
+          dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
+        } catch (e) { console.error('Falha crítica no rollback do DB', e); }
+      }
+      // 2. Reverter fotos
+      if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+        if (!fs.existsSync(fotosDir)) {
+          try { fs.renameSync(fotosTempDir, fotosDir); } catch(e) {}
+        }
+      }
+      // 3. Reverter PDFs com proteção contra falha em cascata
+      for (const rename of pdfRenames) {
+        if (fs.existsSync(rename.newPath)) {
+          try { fs.renameSync(rename.newPath, rename.oldPath); } catch(e) {}
+        }
+      }
+      throw error;
+    }
+
+    // 5. Exclusão permanente física síncrona (Crash-safe)
+    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+      try {
+        fs.rmSync(fotosTempDir, { recursive: true, force: true });
+      } catch (err) {
+        console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
+      }
+    }
+
+    return { success: true, timestamp };
+  } finally {
+    isArchiving = false;
+  }
 }
 
 module.exports = {
