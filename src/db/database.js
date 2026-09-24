@@ -343,6 +343,60 @@ function salvarConfiguracoes(novasConfiguracoes) {
   return dbData.configuracoes;
 }
 
+// ============================================================
+// Arquivamento e Expurgo (PIC-3)
+// ============================================================
+
+function archiveAndPurge() {
+  const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  
+  // 1. Soft-Delete DB
+  const archiveDbDir = path.join(dataDir, 'archive_db');
+  if (!fs.existsSync(archiveDbDir)) {
+    fs.mkdirSync(archiveDbDir, { recursive: true });
+  }
+  const currentDbPath = getDbPath();
+  const archivedDbPath = path.join(archiveDbDir, `picasso_db_archived_${timestamp}.json`);
+  if (fs.existsSync(currentDbPath)) {
+    fs.copyFileSync(currentDbPath, archivedDbPath);
+  }
+
+  // 2. Soft-Delete PDFs
+  const pdfsDir = path.join(dataDir, 'pdfs');
+  const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
+  const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
+  
+  if (fs.existsSync(pdfsDir)) {
+    if (!fs.existsSync(newArchiveFolder)) {
+      fs.mkdirSync(newArchiveFolder, { recursive: true });
+    }
+    
+    const items = fs.readdirSync(pdfsDir);
+    for (const item of items) {
+      if (item === 'archive_pdfs') continue;
+      const oldPath = path.join(pdfsDir, item);
+      const newPath = path.join(newArchiveFolder, item);
+      fs.renameSync(oldPath, newPath);
+    }
+  }
+
+  // 3. Hard-Delete Fotos
+  const fotosDir = path.join(dataDir, 'fotos');
+  if (fs.existsSync(fotosDir)) {
+    fs.rmSync(fotosDir, { recursive: true, force: true });
+  }
+
+  // 4. Limpar Banco de Dados mantendo configurações globais
+  dbData.alunos = [];
+  dbData.log_scraping = [];
+  dbData._nextAlunoId = 1;
+  dbData._nextLogId = 1;
+  saveDb();
+  
+  return { success: true, timestamp };
+}
+
 module.exports = {
   initDatabase,
   closeDatabase,
@@ -362,4 +416,5 @@ module.exports = {
   getUltimaEstimativaSincronizacao,
   getConfiguracoes,
   salvarConfiguracoes,
+  archiveAndPurge,
 };

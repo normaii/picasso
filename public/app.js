@@ -871,6 +871,60 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
+  // Encerramento de Ciclo Letivo (PIC-3)
+  // ==========================================
+  const btnPurgeData = document.getElementById('btn-purge-data');
+  const modalPurge = document.getElementById('modal-purge');
+  const btnPurgeCancel = document.getElementById('btn-purge-cancel');
+  const btnPurgeConfirm = document.getElementById('btn-purge-confirm');
+  const inputPurgeConfirm = document.getElementById('input-purge-confirm');
+
+  if (btnPurgeData && modalPurge) {
+    btnPurgeData.addEventListener('click', () => {
+      inputPurgeConfirm.value = '';
+      btnPurgeConfirm.disabled = true;
+      modalPurge.style.display = 'flex';
+    });
+
+    btnPurgeCancel.addEventListener('click', () => {
+      modalPurge.style.display = 'none';
+    });
+
+    inputPurgeConfirm.addEventListener('input', (e) => {
+      if (e.target.value.trim().toUpperCase() === 'ENCERRAR') {
+        btnPurgeConfirm.disabled = false;
+      } else {
+        btnPurgeConfirm.disabled = true;
+      }
+    });
+
+    btnPurgeConfirm.addEventListener('click', async () => {
+      try {
+        btnPurgeConfirm.disabled = true;
+        btnPurgeConfirm.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Processando...';
+        
+        const res = await fetch('http://localhost:3000/api/system/archive', { method: 'POST' });
+        const data = await res.json();
+        
+        modalPurge.style.display = 'none';
+        
+        if (res.ok) {
+          alert('Encerramento de ciclo letivo concluído com sucesso!');
+          carregarDadosAdd();
+          carregarDadosCdf();
+          atualizarStatusHome();
+        } else {
+          alert('Erro no expurgo: ' + (data.erro || 'Falha desconhecida.'));
+        }
+      } catch (err) {
+        alert('Erro ao contatar API de arquivamento.');
+      } finally {
+        btnPurgeConfirm.innerHTML = '<i class="ph ph-trash"></i> Confirmar Expurgo';
+      }
+    });
+  }
+
+  // ==========================================
   // Inicialização no Carregamento
   // ==========================================
   atualizarStatusHome();

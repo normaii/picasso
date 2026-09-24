@@ -20,6 +20,7 @@ const {
   getUltimaEstimativaSincronizacao,
   getConfiguracoes,
   salvarConfiguracoes,
+  archiveAndPurge,
 } = require('../db/database');
 
 const {
@@ -147,6 +148,24 @@ router.post('/config', (req, res) => {
   } catch (error) {
     console.error('[API] Erro ao salvar configurações:', error.message);
     res.status(500).json({ erro: 'Erro ao salvar configurações.' });
+  }
+});
+
+// ============================================================
+// Encerramento de Ciclo Letivo (PIC-3)
+// ============================================================
+
+/**
+ * POST /api/system/archive
+ * Executa o Soft-Delete de Banco e PDFs e o Hard-Delete de Fotos.
+ */
+router.post('/system/archive', (req, res) => {
+  try {
+    const result = archiveAndPurge();
+    res.json({ mensagem: 'Encerramento de ciclo letivo concluído com sucesso.', detalhes: result });
+  } catch (error) {
+    console.error('[API] Erro ao arquivar dados:', error);
+    res.status(500).json({ erro: 'Erro interno ao realizar o expurgo de dados.' });
   }
 });
 
