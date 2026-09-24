@@ -906,9 +906,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('http://localhost:3000/api/system/archive', { method: 'POST' });
         const data = await res.json();
         
-        modalPurge.style.display = 'none';
-        
         if (res.ok) {
+          modalPurge.style.display = 'none';
           alert('Encerramento de ciclo letivo concluído com sucesso!');
           carregarDadosAdd();
           carregarDadosCdf();
@@ -920,6 +919,9 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Erro ao contatar API de arquivamento.');
       } finally {
         btnPurgeConfirm.innerHTML = '<i class="ph ph-trash"></i> Confirmar Expurgo';
+        if (inputPurgeConfirm.value.trim().toUpperCase() === 'ENCERRAR') {
+          btnPurgeConfirm.disabled = false;
+        }
       }
     });
   }
