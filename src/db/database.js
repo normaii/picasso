@@ -362,8 +362,13 @@ function archiveAndPurge() {
     fs.copyFileSync(currentDbPath, archivedDbPath);
   }
 
+  const pdfRenames = [];
+  let fotosRenamed = false;
+  const fotosDir = path.join(dataDir, 'fotos');
+  const fotosTempDir = path.join(dataDir, `fotos_temp_delete_${timestamp}`);
+
   try {
-    // 2. Soft-Delete PDFs
+    // 2. Soft-Delete PDFs (com tracking de renomeações)
     const pdfsDir = path.join(dataDir, 'pdfs');
     const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
     const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
@@ -379,13 +384,14 @@ function archiveAndPurge() {
         const oldPath = path.join(pdfsDir, item);
         const newPath = path.join(newArchiveFolder, item);
         fs.renameSync(oldPath, newPath);
+        pdfRenames.push({ oldPath, newPath });
       }
     }
 
-    // 3. Hard-Delete Fotos
-    const fotosDir = path.join(dataDir, 'fotos');
+    // 3. Hard-Delete Fotos (preparação com rename atômico para garantir consistência)
     if (fs.existsSync(fotosDir)) {
-      fs.rmSync(fotosDir, { recursive: true, force: true });
+      fs.renameSync(fotosDir, fotosTempDir);
+      fotosRenamed = true;
     }
 
     // 4. Limpar Banco de Dados mantendo configurações globais
@@ -395,12 +401,30 @@ function archiveAndPurge() {
     dbData._nextLogId = 1;
     saveDb();
     
+    // 5. Se banco atualizou com sucesso, executa a exclusão permanente física
+    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+      fs.rmSync(fotosTempDir, { recursive: true, force: true });
+    }
+
     return { success: true, timestamp };
   } catch (error) {
-    // Reverte o banco de dados caso ocorra falha crítica durante as exclusões
+    // === ROLLBACK COMPLETO ===
+    // 1. Reverter JSON
     if (fs.existsSync(archivedDbPath)) {
       fs.copyFileSync(archivedDbPath, currentDbPath);
       dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
+    }
+    // 2. Reverter fotos
+    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+      if (!fs.existsSync(fotosDir)) {
+        fs.renameSync(fotosTempDir, fotosDir);
+      }
+    }
+    // 3. Reverter PDFs
+    for (const rename of pdfRenames) {
+      if (fs.existsSync(rename.newPath)) {
+        fs.renameSync(rename.newPath, rename.oldPath);
+      }
     }
     throw error;
   }
