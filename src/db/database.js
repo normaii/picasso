@@ -362,39 +362,48 @@ function archiveAndPurge() {
     fs.copyFileSync(currentDbPath, archivedDbPath);
   }
 
-  // 2. Soft-Delete PDFs
-  const pdfsDir = path.join(dataDir, 'pdfs');
-  const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
-  const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
-  
-  if (fs.existsSync(pdfsDir)) {
-    if (!fs.existsSync(newArchiveFolder)) {
-      fs.mkdirSync(newArchiveFolder, { recursive: true });
-    }
+  try {
+    // 2. Soft-Delete PDFs
+    const pdfsDir = path.join(dataDir, 'pdfs');
+    const archivePdfDir = path.join(pdfsDir, 'archive_pdfs');
+    const newArchiveFolder = path.join(archivePdfDir, `archived_pdf_data_${timestamp}`);
     
-    const items = fs.readdirSync(pdfsDir);
-    for (const item of items) {
-      if (item === 'archive_pdfs') continue;
-      const oldPath = path.join(pdfsDir, item);
-      const newPath = path.join(newArchiveFolder, item);
-      fs.renameSync(oldPath, newPath);
+    if (fs.existsSync(pdfsDir)) {
+      if (!fs.existsSync(newArchiveFolder)) {
+        fs.mkdirSync(newArchiveFolder, { recursive: true });
+      }
+      
+      const items = fs.readdirSync(pdfsDir);
+      for (const item of items) {
+        if (item === 'archive_pdfs') continue;
+        const oldPath = path.join(pdfsDir, item);
+        const newPath = path.join(newArchiveFolder, item);
+        fs.renameSync(oldPath, newPath);
+      }
     }
-  }
 
-  // 3. Hard-Delete Fotos
-  const fotosDir = path.join(dataDir, 'fotos');
-  if (fs.existsSync(fotosDir)) {
-    fs.rmSync(fotosDir, { recursive: true, force: true });
-  }
+    // 3. Hard-Delete Fotos
+    const fotosDir = path.join(dataDir, 'fotos');
+    if (fs.existsSync(fotosDir)) {
+      fs.rmSync(fotosDir, { recursive: true, force: true });
+    }
 
-  // 4. Limpar Banco de Dados mantendo configurações globais
-  dbData.alunos = [];
-  dbData.log_scraping = [];
-  dbData._nextAlunoId = 1;
-  dbData._nextLogId = 1;
-  saveDb();
-  
-  return { success: true, timestamp };
+    // 4. Limpar Banco de Dados mantendo configurações globais
+    dbData.alunos = [];
+    dbData.log_scraping = [];
+    dbData._nextAlunoId = 1;
+    dbData._nextLogId = 1;
+    saveDb();
+    
+    return { success: true, timestamp };
+  } catch (error) {
+    // Reverte o banco de dados caso ocorra falha crítica durante as exclusões
+    if (fs.existsSync(archivedDbPath)) {
+      fs.copyFileSync(archivedDbPath, currentDbPath);
+      dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
+    }
+    throw error;
+  }
 }
 
 module.exports = {

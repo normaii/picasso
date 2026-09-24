@@ -165,7 +165,7 @@ router.post('/system/archive', (req, res) => {
     const lastScraping = getUltimoLogScraping();
     
     const isScrapingActive = lastScraping && lastScraping.status === 'em_andamento';
-    const isPhotosActive = photoStatus && photoStatus.isRunning;
+    const isPhotosActive = photoStatus && (photoStatus.status === 'em_andamento' || photoStatus.status === 'cancelando');
     
     if (isScrapingActive || isPhotosActive) {
       return res.status(409).json({ erro: 'Não é possível arquivar enquanto há processos de sincronização ou download em andamento. Cancele-os primeiro.' });
