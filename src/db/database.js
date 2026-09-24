@@ -401,12 +401,6 @@ function archiveAndPurge() {
     dbData._nextLogId = 1;
     saveDb();
     
-    // 5. Se banco atualizou com sucesso, executa a exclusão permanente física
-    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
-      fs.rmSync(fotosTempDir, { recursive: true, force: true });
-    }
-
-    return { success: true, timestamp };
   } catch (error) {
     // === ROLLBACK COMPLETO ===
     // 1. Reverter JSON
@@ -428,6 +422,15 @@ function archiveAndPurge() {
     }
     throw error;
   }
+
+  // 5. Exclusão permanente física assíncrona (Fora da transação para ser crash-safe)
+  if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+    fs.rm(fotosTempDir, { recursive: true, force: true }, (err) => {
+      if (err) console.error('[Archive] Erro ao deletar pasta temp de fotos no background:', err);
+    });
+  }
+
+  return { success: true, timestamp };
 }
 
 module.exports = {
