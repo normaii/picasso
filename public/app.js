@@ -899,6 +899,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalPurge.style.display === 'flex') {
+        modalPurge.style.display = 'none';
+      }
+    });
+
     btnPurgeConfirm.addEventListener('click', async () => {
       try {
         btnPurgeConfirm.disabled = true;

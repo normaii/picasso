@@ -168,7 +168,9 @@ const {
  */
 router.post('/system/archive', (req, res) => {
   const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== 'picasso-local-beta-key') {
+  const expectedKey = process.env.ADMIN_SECRET || 'picasso-local-beta-key';
+  
+  if (adminKey !== expectedKey) {
     return res.status(401).json({ erro: 'Não autorizado. Apenas o administrador do sistema pode realizar esta operação.' });
   }
 
@@ -266,6 +268,10 @@ router.post('/scraping/iniciar', async (req, res) => {
       return res.status(409).json({ erro: 'Não é possível iniciar scraping durante o encerramento do ciclo letivo.' });
     }
 
+    if (getIsScrapingRunning()) {
+      return res.status(409).json({ erro: 'Já existe um scraping em andamento.' });
+    }
+
     // Inicia de forma assíncrona para não bloquear a requisição
     iniciarScraping(cookies).catch(err => console.error(err));
 
@@ -329,6 +335,10 @@ router.get('/sincronizacao/estimativa', (req, res) => {
  */
 router.post('/fotos/iniciar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar o download de fotos durante o encerramento do ciclo letivo.' });
+    }
+
     const { turma, concurrency, cookies, forcar } = req.body || {};
 
     // Dispara em background

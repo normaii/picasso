@@ -61,10 +61,11 @@ async function iniciarScraping(cookies) {
   if (isScrapingRunning) return;
   isScrapingRunning = true;
   cancelRequested = false;
-  const logId = criarLogScraping();
+  let logId = null;
   let win = null;
 
   try {
+    logId = criarLogScraping();
     log('Iniciando scraping com BrowserWindow invisível...');
     
     win = new BrowserWindow({
@@ -497,10 +498,12 @@ async function iniciarScraping(cookies) {
 
   } catch (error) {
     console.error('[Scraper] Erro catastrófico durante o scraping:', error);
-    atualizarLogScraping(logId, { 
-      status: 'erro', 
-      mensagem: error.message 
-    });
+    if (logId) {
+      atualizarLogScraping(logId, { 
+        status: 'erro', 
+        mensagem: error.message 
+      });
+    }
   } finally {
     isScrapingRunning = false;
     if (win) {

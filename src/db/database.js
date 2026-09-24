@@ -32,8 +32,14 @@ function getDbPath() {
  */
 function saveDb() {
   if (!dbPath) return;
-  // Escreve de forma síncrona
-  fs.writeFileSync(dbPath, JSON.stringify(dbData, null, 2), 'utf-8');
+  // Gravação atômica para evitar corrupção de JSON em crash
+  const tempPath = `${dbPath}.tmp`;
+  try {
+    fs.writeFileSync(tempPath, JSON.stringify(dbData, null, 2), 'utf-8');
+    fs.renameSync(tempPath, dbPath);
+  } catch (err) {
+    console.error('[DB] Erro fatal ao salvar o banco de dados de forma atômica:', err);
+  }
 }
 
 /**
@@ -60,14 +66,29 @@ function initDatabase() {
 
   // Cleanup assíncrono de pastas temporárias zumbis do arquivamento (PIC-3)
   const dataDir = path.dirname(dbPath);
+  const fotosOficiais = path.join(dataDir, 'fotos');
+  const fotosExist = fs.existsSync(fotosOficiais);
+  
   fs.readdir(dataDir, (err, items) => {
     if (err) return;
     items.forEach(item => {
       if (item.startsWith('fotos_temp_delete_')) {
         const fullPath = path.join(dataDir, item);
-        fs.rm(fullPath, { recursive: true, force: true }, (err) => {
-          if (!err) console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
-        });
+        
+        if (!fotosExist) {
+          // Recuperação de Crash: A pasta oficial sumiu, significa que a transação não terminou. Restaurar as fotos.
+          try {
+            fs.renameSync(fullPath, fotosOficiais);
+            console.warn(`[Archive] RECUPERAÇÃO DE EMERGÊNCIA: Fotos restauradas a partir de ${item}`);
+          } catch(e) {
+            console.error('[Archive] Falha ao tentar recuperar fotos da pasta zumbi:', e);
+          }
+        } else {
+          // Fluxo normal: A pasta oficial já existe (ou foi recriada), isso é lixo do expurgo passado.
+          fs.rm(fullPath, { recursive: true, force: true }, (err) => {
+            if (!err) console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
+          });
+        }
       }
     });
   });
