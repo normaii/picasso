@@ -204,6 +204,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
               onFinishLoad = async () => {
                  try {
                     await doCheckReady();
+                    log('[Scraper-DOM] Operação assíncrona concluída [' + (readyCondition ? 'Custom ReadyCondition Met' : 'Default ASP.NET Ready') + '] após Full Postback');
                     resolve(true);
                  } catch (e) { reject(e); }
               };
@@ -785,7 +786,7 @@ async function iniciarScraping(cookies) {
               }
             };
 
-            mainObserver = new MutationObserver(tryExtract);
+            mainObserver = new MutationObserver(tryExtractDebounced);
             mainObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
 
             loadHandler = (e) => {
