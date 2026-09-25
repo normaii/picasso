@@ -412,6 +412,7 @@ function archiveAndPurge() {
   if (isArchiving) throw new Error('O arquivamento já está em andamento.');
   isArchiving = true;
   
+  let dbDataSnapshot;
   try {
     const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -460,7 +461,7 @@ function archiveAndPurge() {
       }
 
       // 4. Limpar Banco de Dados mantendo configurações globais
-      const dbDataSnapshot = JSON.stringify(dbData);
+      dbDataSnapshot = JSON.stringify(dbData);
       dbData.alunos = [];
       dbData.log_scraping = [];
       dbData._nextAlunoId = 1;
@@ -505,8 +506,13 @@ function archiveAndPurge() {
       try {
         fs.writeFileSync(path.join(fotosTempDir, '.archive_committed'), timestamp, 'utf-8');
       } catch(e) {
-        // Não é fatal: se o marcador não for gravado, o boot tratará como crash pré-commit (safe)
-        console.warn('[Archive] Não foi possível gravar marcador de commit:', e.message);
+        console.error('[Archive] Falha fatal: Não foi possível gravar marcador de commit:', e.message);
+        return {
+          success: false,
+          timestamp,
+          erro: `Falha ao gravar marcador de segurança. A exclusão física foi abortada para evitar corrupção. A pasta '${path.basename(fotosTempDir)}' permanece no disco. Remova-a manualmente.`,
+          warnings
+        };
       }
     }
 
@@ -530,6 +536,8 @@ function archiveAndPurge() {
       }
     } catch (e) {
       console.error('[Archive] Erro ao listar diretório para limpeza final de fotos:', e);
+      hardDeleteFailed = true;
+      failedFolders.push('falha_ao_ler_dataDir');
     }
 
     if (hardDeleteFailed) {
