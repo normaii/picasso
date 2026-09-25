@@ -537,15 +537,20 @@ async function iniciarScraping(cookies) {
         // Ações de iframe não emitem beginRequest no PRM pai, então roteamos diretamente para WAIT_IFRAME_REPORT.
         await win.webContents.executeJavaScript(`
           try {
+             const removeRows = (d) => {
+                 d.querySelectorAll('table tr').forEach(tr => {
+                     const tds = tr.querySelectorAll('td');
+                     if (tds.length >= 4 && /^\\d{10,}$/.test(tds[0].innerText.trim())) {
+                         tr.remove();
+                     }
+                 });
+             };
              document.querySelectorAll('iframe, frame').forEach(f => {
-                if (f.contentDocument && f.contentDocument.body) {
-                    f.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
+                if (f.contentDocument) {
+                    removeRows(f.contentDocument);
                     f.contentDocument.querySelectorAll('iframe, frame').forEach(subF => {
-                       if (subF.contentDocument && subF.contentDocument.body) {
-                          subF.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
-                       }
+                       if (subF.contentDocument) removeRows(subF.contentDocument);
                     });
-                   // f.contentDocument.body.innerHTML = ''; // Removido: preserva iframe para evitar timeout do SSRS viewer 
                 }
              });
           } catch(e) {}
@@ -691,7 +696,6 @@ async function iniciarScraping(cookies) {
                 const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
                 if (scrapedVal === markerKey) return;
-                if (scrapedVal === 'INVALIDATING') return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
