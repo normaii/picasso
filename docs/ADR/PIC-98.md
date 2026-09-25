@@ -9,11 +9,11 @@ Isto ocorreu porque o `<input>` continha a tag `required` em seu código HTML. C
 
 Para corrigir a vulnerabilidade de usabilidade:
 1. **Frontend**: Remover o atributo `required` do campo de input correspondente ao "Logo da Escola" no arquivo `public/index.html`.
-2. **Backend**: Assegurar que o módulo de gravação (na API/DB e no frontend `app.js`) aceite a string vazia `""` como um valor válido para `logoUrl`, atualizando as `configuracoes` globais.
-3. **Geração**: Se `logoUrl` estiver em branco, o gerador de PDF (`src/generator/pdfGenerator.js`, linha 67) já aplica um fallback para uma imagem placeholder externa (`https://via.placeholder.com/150/...`). Este comportamento será mantido até a implementação da PIC-11, que introduzirá o upload de logo nativo e um asset embarcado definitivo.
+2. **Backend**: Assegurar que o módulo de gravação (na API/DB e no frontend `app.js`) aceite a string vazia `""` como um valor válido para `escolaLogo`, atualizando as `configuracoes` globais.
+3. **Geração**: Se `escolaLogo` estiver em branco, o gerador de PDF (`src/generator/pdfGenerator.js`, linha 67) já aplica um fallback para uma imagem placeholder externa (`https://via.placeholder.com/150/...`). Este comportamento será mantido até a implementação da PIC-11, que introduzirá o upload de logo nativo e um asset embarcado definitivo.
 
 ## 3. Consequências
 
 - **Melhoria UX:** Os usuários não ficarão travados caso apenas queiram alterar o nome da escola.
-- **Transparência:** Mantém a retrocompatibilidade com o banco de dados que suportava propriedades em branco na chave `configuracoes.logoUrl`.
+- **Transparência:** Mantém a retrocompatibilidade com o banco de dados que suportava propriedades em branco na chave `configuracoes.escolaLogo`.
 - A implementação deste hotfix ocorrerá exclusivamente no front-end, eliminando riscos colaterais a outras funcionalidades do aplicativo.
