@@ -504,20 +504,35 @@ function archiveAndPurge() {
       }
     }
 
-    // 6. Exclusão permanente física síncrona (Crash-safe)
-    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
-      try {
-        fs.rmSync(fotosTempDir, { recursive: true, force: true });
-      } catch (err) {
-        console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
-        // Hard-delete de fotos é requisito LGPD — se falhou, não é sucesso total.
-        return {
-          success: false,
-          timestamp,
-          erro: `O banco e os PDFs foram arquivados com sucesso, porém a exclusão física das fotos falhou. A pasta '${path.basename(fotosTempDir)}' permanece no disco e deve ser removida manualmente. Motivo: ${err.message}`,
-          warnings
-        };
+    // 6. Exclusão permanente física síncrona de todas as pastas temporárias (Crash-safe e Retry-safe)
+    let hardDeleteFailed = false;
+    let failedFolders = [];
+    
+    try {
+      const items = fs.readdirSync(dataDir);
+      for (const item of items) {
+        if (item.startsWith('fotos_temp_delete_')) {
+          const fullPath = path.join(dataDir, item);
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+          } catch (err) {
+            console.error(`[Archive] Erro ao deletar pasta temp de fotos: ${item}`, err);
+            hardDeleteFailed = true;
+            failedFolders.push(item);
+          }
+        }
       }
+    } catch (e) {
+      console.error('[Archive] Erro ao listar diretório para limpeza final de fotos:', e);
+    }
+
+    if (hardDeleteFailed) {
+      return {
+        success: false,
+        timestamp,
+        erro: `O banco e os PDFs foram arquivados com sucesso, porém a exclusão física das fotos falhou para: ${failedFolders.join(', ')}. Remova manualmente para cumprir a LGPD.`,
+        warnings
+      };
     }
 
     return { success: true, timestamp, warnings };
