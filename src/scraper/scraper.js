@@ -36,7 +36,7 @@ function log(msg) {
  */
 async function waitAspNetReady(win) {
   const cfg = getConfiguracoes();
-  const timeoutMs = parseInt(cfg.timeoutScraping) || 60000;
+  const timeoutMs = cfg.timeoutScraping ? parseInt(cfg.timeoutScraping) * 1000 : 60000;
 
   try {
     await win.webContents.executeJavaScript(`
@@ -56,7 +56,19 @@ async function waitAspNetReady(win) {
               return false;
             }
             return true;
-          } catch(e) { return true; }
+          } catch(e) { return false; } // Error checking means not ready or DOM changing
+        };
+
+        let isDone = false;
+        let observer = null;
+        let endRequestHandler = null;
+        let prm = null;
+
+        const cleanup = () => {
+          if (observer) observer.disconnect();
+          if (prm && endRequestHandler) {
+            try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
+          }
         };
 
         if (checkReady()) {
@@ -64,10 +76,10 @@ async function waitAspNetReady(win) {
           return resolve(true);
         }
 
-        let isDone = false;
         const timeoutTimer = setTimeout(() => {
           if (!isDone) {
             isDone = true;
+            cleanup();
             console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
             reject(new Error('Network Timeout'));
           }
@@ -76,6 +88,7 @@ async function waitAspNetReady(win) {
         const finish = () => {
           if (!isDone) {
             isDone = true;
+            cleanup();
             clearTimeout(timeoutTimer);
             const duration = Date.now() - startTime;
             console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
@@ -84,17 +97,15 @@ async function waitAspNetReady(win) {
         };
 
         if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-           const prm = Sys.WebForms.PageRequestManager.getInstance();
-           const endRequestHandler = () => {
-              prm.remove_endRequest(endRequestHandler);
+           prm = Sys.WebForms.PageRequestManager.getInstance();
+           endRequestHandler = () => {
               finish();
            };
            prm.add_endRequest(endRequestHandler);
         }
 
-        const observer = new MutationObserver(() => {
+        observer = new MutationObserver(() => {
            if (checkReady()) {
-              observer.disconnect();
               finish();
            }
         });
