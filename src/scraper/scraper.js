@@ -537,19 +537,14 @@ async function iniciarScraping(cookies) {
         // Ações de iframe não emitem beginRequest no PRM pai, então roteamos diretamente para WAIT_IFRAME_REPORT.
         await win.webContents.executeJavaScript(`
           try {
-             const removeRows = (d) => {
-                 d.querySelectorAll('table tr').forEach(tr => {
-                     const tds = tr.querySelectorAll('td');
-                     if (tds.length >= 4 && /^\\d{10,}$/.test(tds[0].innerText.trim())) {
-                         tr.remove();
-                     }
-                 });
+             const markOld = (d) => {
+                 d.querySelectorAll('table').forEach(t => t.setAttribute('data-old-report', 'true'));
              };
              document.querySelectorAll('iframe, frame').forEach(f => {
                 if (f.contentDocument) {
-                    removeRows(f.contentDocument);
+                    markOld(f.contentDocument);
                     f.contentDocument.querySelectorAll('iframe, frame').forEach(subF => {
-                       if (subF.contentDocument) removeRows(subF.contentDocument);
+                       if (subF.contentDocument) markOld(subF.contentDocument);
                     });
                 }
              });
@@ -719,6 +714,13 @@ async function iniciarScraping(cookies) {
 
                 const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
                 if (isVisible(outerWaitPanel)) return;
+
+                // Apenas processa se houver uma nova tabela que o AJAX acabou de criar (ou se for um doc novo inteiro)
+                const allTables = Array.from(doc.querySelectorAll('table'));
+                if (allTables.length > 0) {
+                    const hasNewTables = allTables.some(t => !t.hasAttribute('data-old-report'));
+                    if (!hasNewTables) return; // O UpdatePanel ainda não substituiu o DOM antigo!
+                }
 
                 // Se passou por todas as gates de carregamento, o relatório carregou!
                 reportSuccessfullyLoaded = true;
