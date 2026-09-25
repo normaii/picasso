@@ -575,7 +575,8 @@ async function iniciarScraping(cookies) {
             
             let isDone = false;
             let reportSuccessfullyLoaded = false;
-            let latestReportHtml = '';
+            let lastReportDoc = null;
+            let extractDebounceTimer = null;
             let mainObserver = null;
             let iframeObserver = null;
             let timeoutTimer = null;
@@ -591,6 +592,10 @@ async function iniciarScraping(cookies) {
                if (window._emptyTimer) {
                   clearTimeout(window._emptyTimer);
                   window._emptyTimer = null;
+               }
+               if (extractDebounceTimer) {
+                  clearTimeout(extractDebounceTimer);
+                  extractDebounceTimer = null;
                }
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
@@ -609,10 +614,12 @@ async function iniciarScraping(cookies) {
             };
 
             timeoutTimer = setTimeout(() => {
+               let fallbackHtml = '';
+               try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
                if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML, foundId: lastFoundId });
+                  finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
                } else {
-                  finish({ error: 'iframe_not_found_timeout', html: latestReportHtml || document.documentElement.outerHTML, foundId: lastFoundId });
+                  finish({ error: 'iframe_not_found_timeout', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
                }
             }, tMs);
 
@@ -634,6 +641,11 @@ async function iniciarScraping(cookies) {
               } catch (e) {
                 return null;
               }
+            };
+
+            const tryExtractDebounced = () => {
+               if (extractDebounceTimer) clearTimeout(extractDebounceTimer);
+               extractDebounceTimer = setTimeout(tryExtract, 100);
             };
 
             const tryExtract = () => {
@@ -699,7 +711,7 @@ async function iniciarScraping(cookies) {
                 } catch(e) { }
 
                 // Agora doc aponta para o documento final (nested ou outer)
-                try { latestReportHtml = doc.documentElement.outerHTML; } catch(e) {}
+                lastReportDoc = doc;
                 
                 // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
                 const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
@@ -708,7 +720,7 @@ async function iniciarScraping(cookies) {
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
-                   iframeObserver = new MutationObserver(tryExtract);
+                   iframeObserver = new MutationObserver(tryExtractDebounced);
                    iframeObserver.doc = doc;
                    iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                 }
@@ -747,7 +759,9 @@ async function iniciarScraping(cookies) {
                 if (trs.length === 0) {
                    window._emptyTimer = setTimeout(() => {
                       window._emptyTimer = null;
-                      finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML, foundId });
+                      let fallbackHtml = '';
+                      try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
+                      finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId });
                    }, 2000); // 2 segundos curtos de tolerância, reiniciados a cada mutação
                    return; 
                 }
