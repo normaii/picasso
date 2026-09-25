@@ -157,38 +157,42 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
 
     let result;
     try {
-      result = await Promise.race([ waitPromise, cancelPoll() ]);
-    } catch (err) {
-      if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated'))) {
-         log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
-         return new Promise((resolve, reject) => {
-            const timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
-            const onFinishLoad = async () => {
-               clearTimeout(timeoutTimer);
-               win.webContents.removeListener('did-finish-load', onFinishLoad);
-               if (readyCondition) {
-                  try {
-                     await win.webContents.executeJavaScript(`
-                        new Promise(res => {
-                           const poll = setInterval(() => {
-                              try {
-                                const met = new Function(${JSON.stringify(readyCondition)})();
-                                if (met) { clearInterval(poll); res(true); }
-                              } catch(e) {}
-                           }, 200);
-                           setTimeout(() => { clearInterval(poll); res(true); }, ${timeoutMs});
-                        })
-                     `);
-                     resolve(true);
-                  } catch (e) { reject(e); }
-               } else {
-                  resolve(true);
-               }
-            };
-            win.webContents.on('did-finish-load', onFinishLoad);
-         });
+      try {
+        result = await Promise.race([ waitPromise, cancelPoll() ]);
+      } catch (err) {
+        if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated'))) {
+           log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
+           return await new Promise((resolve, reject) => {
+              const timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
+              const onFinishLoad = async () => {
+                 clearTimeout(timeoutTimer);
+                 win.webContents.removeListener('did-finish-load', onFinishLoad);
+                 if (readyCondition) {
+                    try {
+                       await win.webContents.executeJavaScript(`
+                          new Promise(res => {
+                             const poll = setInterval(() => {
+                                try {
+                                  const met = new Function(${JSON.stringify(readyCondition)})();
+                                  if (met) { clearInterval(poll); res(true); }
+                                } catch(e) {}
+                             }, 200);
+                             setTimeout(() => { clearInterval(poll); res(true); }, ${timeoutMs});
+                          })
+                       `);
+                       resolve(true);
+                    } catch (e) { reject(e); }
+                 } else {
+                    resolve(true);
+                 }
+              };
+              win.webContents.on('did-finish-load', onFinishLoad);
+           });
+        }
+        throw err; // Propaga os timeouts corretamente ao invés de ignorar!
       }
-      throw err; // Propaga os timeouts corretamente ao invés de ignorar!
+    } finally {
+      isRaceDone = true;
     }
     
     if (result && result.cancelled) {
@@ -196,6 +200,9 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
     }
     
     return true;
+  } catch (err) {
+    throw err;
+  }
 }
 
 let isScrapingRunning = false;
