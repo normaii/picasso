@@ -19,10 +19,6 @@ function isCancelled() {
   return cancelRequested;
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 /**
  * Log com timestamp no console.
  */
@@ -132,13 +128,22 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
     `);
 
     let isRaceDone = false;
-    const cancelPoll = async () => {
-      while (!isCancelled() && !isRaceDone) { await delay(500); }
-      return { cancelled: true };
-    };
+    let cancelPollTimer = null;
+    const cancelPoll = new Promise((resolve) => {
+      const poll = () => {
+        if (isCancelled()) {
+          resolve({ cancelled: true });
+          return;
+        }
+        if (isRaceDone) return;
+        cancelPollTimer = setTimeout(poll, 500);
+      };
+      poll();
+    });
 
-    const result = await Promise.race([ waitPromise, cancelPoll() ]);
+    const result = await Promise.race([ waitPromise, cancelPoll ]);
     isRaceDone = true;
+    if (cancelPollTimer) clearTimeout(cancelPollTimer);
     
     if (result && result.cancelled) {
       throw new Error('Sincronização cancelada pelo usuário.');
@@ -432,6 +437,7 @@ async function iniciarScraping(cookies) {
             let mainObserver = null;
             let iframeObserver = null;
             let timeoutTimer = null;
+            const pendingNestedFrames = new WeakSet();
             let loadHandler = null;
 
             const cleanup = () => {
@@ -494,7 +500,23 @@ async function iniciarScraping(cookies) {
                   const subFrame = doc.getElementById('report');
                   if (subFrame) {
                      // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
-                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
+                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) {
+                        if (!pendingNestedFrames.has(subFrame)) {
+                          pendingNestedFrames.add(subFrame);
+                          subFrame.addEventListener('load', () => {
+                            pendingNestedFrames.delete(subFrame);
+                            tryExtract();
+                          }, { once: true });
+                        }
+
+                        if (!iframeObserver || iframeObserver.doc !== doc) {
+                           if (iframeObserver) iframeObserver.disconnect();
+                           iframeObserver = new MutationObserver(tryExtract);
+                           iframeObserver.doc = doc;
+                           iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
+                        }
+                        return;
+                     }
                      doc = subFrame.contentDocument;
                   }
                 } catch(e) { }
@@ -560,13 +582,22 @@ async function iniciarScraping(cookies) {
         `);
 
         let isRaceDone = false;
-        const cancelPoll = async () => {
-          while (!isCancelled() && !isRaceDone) { await delay(500); }
-          return { error: 'cancelled' };
-        };
+        let cancelPollTimer = null;
+        const cancelPoll = new Promise((resolve) => {
+          const poll = () => {
+            if (isCancelled()) {
+              resolve({ error: 'cancelled' });
+              return;
+            }
+            if (isRaceDone) return;
+            cancelPollTimer = setTimeout(poll, 500);
+          };
+          poll();
+        });
 
-        const iframeState = await Promise.race([ iframePromise, cancelPoll() ]);
+        const iframeState = await Promise.race([ iframePromise, cancelPoll ]);
         isRaceDone = true;
+        if (cancelPollTimer) clearTimeout(cancelPollTimer);
 
         if (iframeState.error === 'table_not_found') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
