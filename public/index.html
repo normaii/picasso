@@ -397,9 +397,50 @@
             </div>
           </div>
         </div>
+
+        <!-- Danger Zone -->
+        <div class="card mt-4" style="border: 1px solid #ef4444; background: #fef2f2;">
+          <div class="card-header" style="border-bottom: 1px solid #fca5a5;">
+            <h3 style="color: #b91c1c;"><i class="ph ph-warning-octagon"></i> Zona de Perigo: Fim de Ano</h3>
+          </div>
+          <div class="card-body">
+            <p style="color: #7f1d1d; margin-bottom: 1rem;">
+              O encerramento do ciclo letivo arquiva os dados atuais (Alunos e PDFs) e <strong>exclui permanentemente as fotos dos alunos (Adequação LGPD)</strong>. Apenas as configurações da escola são mantidas para o próximo ano.
+            </p>
+            <button id="btn-purge-data" class="btn" style="background: #ef4444; color: white;">
+              <i class="ph ph-trash"></i> Encerrar Ciclo Letivo (Arquivar Dados)
+            </button>
+          </div>
+        </div>
       </section>
 
     </main>
+  </div>
+
+  <!-- Modal Confirmação de Expurgo -->
+  <div id="modal-purge" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-purge-title">
+    <div class="modal-content" style="max-width: 500px; border-top: 4px solid #ef4444;">
+      <h3 id="modal-purge-title" style="color: #b91c1c; margin-bottom: 1rem;"><i class="ph ph-warning"></i> Atenção: Encerramento de Ciclo</h3>
+      <p style="margin-bottom: 1rem; color: #334155;">
+        Você está prestes a encerrar o ciclo letivo. Esta ação fará o seguinte:
+      </p>
+      <ul style="margin-bottom: 1.5rem; color: #475569; text-align: left; padding-left: 1.5rem;">
+        <li>Arquivar os dados atuais dos alunos.</li>
+        <li>Arquivar os PDFs gerados.</li>
+        <li><strong>Apagar DE FORMA IRREVERSÍVEL todas as fotos baixadas (LGPD).</strong></li>
+      </ul>
+      <p style="margin-bottom: 1.5rem; font-weight: bold; color: #1e293b;">
+        Para confirmar, digite <code>ENCERRAR</code> abaixo:
+      </p>
+      <input type="text" id="input-purge-confirm" class="form-select" placeholder="Digite ENCERRAR para confirmar" aria-label="Digite a palavra ENCERRAR para confirmar o expurgo" style="width: 100%; margin-bottom: 1.5rem;">
+      
+      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <button id="btn-purge-cancel" class="btn btn-outline">Cancelar</button>
+        <button id="btn-purge-confirm" class="btn" style="background: #ef4444; color: white;" disabled>
+          <i class="ph ph-trash"></i> Confirmar Expurgo
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

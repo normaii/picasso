@@ -1,6 +1,6 @@
 # Picasso — Steering Memory
 
-> **Última atualização**: 2026-09-17
+> **Última atualização**: 2026-09-25
 > **Propósito**: Documentação viva do projeto Picasso. Cada seção descreve **como** um módulo ou aspecto do sistema funciona atualmente e **por quê**, referenciando o ADR que justifica o comportamento.
 >
 > Este documento é a **porta de entrada** para qualquer agente de IA ou desenvolvedor que precise entender a lógica do projeto sem ler código.
@@ -112,6 +112,25 @@ Gera PDFs A4 com carteirinhas dos alunos.
 - **Localização**: `%APPDATA%/picasso/data/picasso_db.json`
 - **Ref**: [ADR-004](ADR/ADR-ALPHA-BASELINE.md#adr-004), [PIC-2](ADR/PIC-2.md)
 
+### 3.6 Módulo de Arquivamento e Expurgo (PIC-3 — LGPD)
+
+Implementa o encerramento do ciclo letivo: soft-delete de banco e PDFs + hard-delete de fotos.
+
+- **Comportamento atual**: Botão "Encerrar Ciclo Letivo" na aba Configurações abre modal de dupla confirmação (digitar "ENCERRAR"). Ao confirmar:
+  1. Copia o JSON do banco para `archive_db/` com timestamp.
+  2. Move os PDFs para `pdfs/archive_pdfs/` com timestamp.
+  3. Renomeia `fotos/` para pasta temporária, grava marcador `.archive_committed`, e exclui fisicamente.
+  4. Limpa o banco de dados em memória (alunos, logs, IDs) e persiste via gravação atômica.
+- **Gravação Atômica (Windows-safe)**: `saveDb()` grava em `picasso_db.json.tmp` e tenta `renameSync`. Se falhar (EPERM/EBUSY por antivírus ou indexer do Windows), usa fallback `copyFileSync` + `unlinkSync`. Exceções propagam para abortar o expurgo.
+- **Concorrência**: Flag global `isArchiving` (try/finally) bloqueia scraping, download de fotos e geração de PDFs (tanto `/api/gerar` quanto `/api/pdf/gerar`). Flag `isScrapingRunning` no `scraper.js` previne duplo scraping e estados zumbis.
+- **Hard-Delete de Fotos**: Se `rmSync` falhar ao excluir fisicamente as fotos, a operação retorna `success: false` com mensagem de erro clara para a UI, exigindo remoção manual pelo operador.
+- **Crash Recovery**: No boot (`initDatabase`), varredura **síncrona** de pastas `fotos_temp_delete_*`. Se a pasta tem marcador `.archive_committed` → lixo pós-commit (apagar). Se não tem marcador e `fotos/` sumiu → crash pré-commit (restaurar fotos).
+- **Autenticação**: Header `x-admin-key` com valor de `process.env.ADMIN_SECRET` (fallback hardcoded para Beta local).
+- **Acessibilidade**: Modal com `role="dialog"`, `aria-modal`, Focus Management e tecla ESC.
+- **Decisões Diferidas**: Autenticação robusta (sem chave em plain-text no front-end), rollback metadata em moves de PDF e `copyFileSync` in-place fallback — documentados no ADR como backlog futuro/overengineering aceito.
+- **Risco Residual Aceito**: Micro-janela de crash (~1ms) entre `saveDb()` e gravação do `.archive_committed` — probabilidade infinitesimal, mitigação manual.
+- **Ref**: [PIC-3](ADR/PIC-3.md)
+
 ---
 
 ## 4. Guardrails de Desenvolvimento
@@ -154,6 +173,18 @@ Todo commit deve seguir o formato: `<type>(<scope>): <description>`
 ### 4.4 Movimentação de status
 
 O desenvolvedor/agente é responsável por atualizar o status da tarefa no GitHub Projects conforme progride no ciclo de vida (ver seção 6).
+
+### 4.5 Fluxo de Code Review Autônomo (Copilot / Agentes IA)
+
+Quando o agente submete uma Pull Request, um fluxo de revisão de código estático (ex: Copilot Code Review) é acionado. O agente **deve, de forma autônoma e sem limite pré-definido de iterações**, executar o seguinte loop de triagem até a resolução:
+
+1. **Aguardar a Revisão**: Monitorar ativamente o fim do Code Review da CI (ex: usando timers ou checando `gh run list`).
+2. **Análise Crítica**: Ao término, extrair e avaliar os achados/comentários da PR recém-aberta.
+3. **Triagem e Ação**:
+   - **Correção mandatória**: Se apontar falhas reais (bugs lógicos, segurança, tratamento de erro), o agente deve **fechar a PR atual**, codar a correção, commitar, e abrir uma nova PR de versão incrementada (ex: `V2`, `V3`).
+   - **Overengineering / Escopo futuro**: Se a revisão sugerir arquiteturas complexas incompatíveis com o escopo atual (desktop/local) ou fora da tarefa, o agente não deve codar. Ele deve documentar formalmente na ADR vigente (seção de Riscos Aceitos ou Decisões Diferidas) ou gerar uma Issue/tarefa de backlog.
+4. **Resumo Automático**: Refazer o ciclo recursivamente até a revisão não acusar problemas severos/médios válidos. Quando limpa, **reescrever o Body da PR final** consolidando o histórico da feature (e não apenas o diff da última iteração).
+5. **Handoff**: Apenas devolver o controle ao Humano quando o loop de aprovação da máquina estiver 100% verde ou com resíduos explicitamente catalogados como *Won't fix*.
 
 ---
 
@@ -319,6 +350,8 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-25 | PIC-3 V10: saveDb() Windows-safe (fallback copy+unlink), guard isArchiving na rota real `/api/pdf/gerar`, rmSync falha retorna success:false, ADR e Memory atualizados. |
+| 2026-09-25 | PIC-3: Adicionada seção 3.6 (Módulo de Arquivamento e Expurgo LGPD). ADR atualizado com decisões de confiabilidade (V6-V9) e backlog diferido. |
 | 2026-09-22 | PIC-13: Adicionada decisão técnica de Scraper Reativo ao Backlog e criação do plano de QA para Throttling de rede. |
 | 2026-09-22 | PIC-28: Mitigação de XSS, Sanitização e Defense in Depth no Gerador de PDF. |
 | 2026-09-21 | PIC-2: Módulo de Armazenamento atualizado para incluir objeto `configuracoes`. Registro de decisões atualizado. |

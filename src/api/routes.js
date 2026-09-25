@@ -20,6 +20,8 @@ const {
   getUltimaEstimativaSincronizacao,
   getConfiguracoes,
   salvarConfiguracoes,
+  archiveAndPurge,
+  getIsArchiving,
 } = require('../db/database');
 
 const {
@@ -151,6 +153,66 @@ router.post('/config', (req, res) => {
 });
 
 // ============================================================
+// Encerramento de Ciclo Letivo (PIC-3)
+// ============================================================
+
+const {
+  iniciarScraping,
+  requestCancel,
+  getIsScrapingRunning,
+} = require('../scraper/scraper');
+
+/**
+ * POST /api/system/archive
+ * Executa o Soft-Delete de Banco e PDFs e o Hard-Delete de Fotos.
+ */
+router.post('/system/archive', (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  const expectedKey = process.env.ADMIN_SECRET || 'picasso-local-beta-key';
+  
+  if (adminKey !== expectedKey) {
+    return res.status(401).json({ erro: 'Não autorizado. Apenas o administrador do sistema pode realizar esta operação.' });
+  }
+
+  try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'O arquivamento já está em andamento.' });
+    }
+
+    const photoStatus = getPhotoFetchStatus();
+    
+    const isScrapingActive = getIsScrapingRunning();
+    
+    const photoTerminalStates = ['ocioso', 'concluido', 'erro', 'cancelado'];
+    const isPhotosActive = photoStatus && !photoTerminalStates.includes(photoStatus.status);
+    
+    const isPdfActive = typeof pdfStatus !== 'undefined' && pdfStatus.status === 'processando';
+
+    if (isScrapingActive || isPhotosActive || isPdfActive) {
+      return res.status(409).json({ erro: 'Não é possível arquivar enquanto há processos de sincronização, download ou geração de PDF em andamento. Aguarde a conclusão.' });
+    }
+
+    const result = archiveAndPurge();
+    if (!result.success) {
+      return res.status(500).json({ erro: result.erro || 'Falha ao concluir o encerramento do ciclo.' });
+    }
+    
+    if (result.warnings && result.warnings.length > 0) {
+      res.json({ 
+        mensagem: 'Encerramento de ciclo letivo concluído com alertas.', 
+        detalhes: result,
+        avisos: result.warnings 
+      });
+    } else {
+      res.json({ mensagem: 'Encerramento de ciclo letivo concluído com sucesso.', detalhes: result });
+    }
+  } catch (error) {
+    console.error('[API] Erro ao arquivar dados:', error);
+    res.status(500).json({ erro: 'Erro interno ao realizar o expurgo de dados.' });
+  }
+});
+
+// ============================================================
 // Geração de PDF
 // ============================================================
 
@@ -161,6 +223,10 @@ router.post('/config', (req, res) => {
  */
 router.post('/gerar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
+    }
+
     const { ids } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -191,8 +257,6 @@ router.post('/gerar', async (req, res) => {
 // Scraping
 // ============================================================
 
-const { iniciarScraping, requestCancel } = require('../scraper/scraper');
-
 /**
  * POST /api/scraping/iniciar
  * Inicia uma operação de scraping.
@@ -204,6 +268,14 @@ router.post('/scraping/iniciar', async (req, res) => {
 
     if (!cookies || !Array.isArray(cookies)) {
       return res.status(400).json({ erro: 'Cookies de sessão não fornecidos.' });
+    }
+
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar scraping durante o encerramento do ciclo letivo.' });
+    }
+
+    if (getIsScrapingRunning()) {
+      return res.status(409).json({ erro: 'Já existe um scraping em andamento.' });
     }
 
     // Inicia de forma assíncrona para não bloquear a requisição
@@ -269,6 +341,10 @@ router.get('/sincronizacao/estimativa', (req, res) => {
  */
 router.post('/fotos/iniciar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar o download de fotos durante o encerramento do ciclo letivo.' });
+    }
+
     const { turma, concurrency, cookies, forcar } = req.body || {};
 
     // Dispara em background
@@ -384,6 +460,10 @@ let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null
  */
 router.post('/pdf/gerar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
+    }
+
     const { turma } = req.body;
     if (!turma) {
       return res.status(400).json({ erro: 'O nome da turma é obrigatório.' });
