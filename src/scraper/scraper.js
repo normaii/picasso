@@ -570,6 +570,7 @@ async function iniciarScraping(cookies) {
             
             let isDone = false;
             let reportSuccessfullyLoaded = false;
+            let latestReportHtml = '';
             let mainObserver = null;
             let iframeObserver = null;
             let timeoutTimer = null;
@@ -594,9 +595,9 @@ async function iniciarScraping(cookies) {
 
             timeoutTimer = setTimeout(() => {
                if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found', html: document.documentElement.outerHTML });
+                  finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
                } else {
-                  finish({ error: 'iframe_not_found_timeout', html: document.documentElement.outerHTML });
+                  finish({ error: 'iframe_not_found_timeout', html: latestReportHtml || document.documentElement.outerHTML });
                }
             }, tMs);
 
@@ -670,6 +671,8 @@ async function iniciarScraping(cookies) {
                 } catch(e) { }
 
                 // Agora doc aponta para o documento final (nested ou outer)
+                try { latestReportHtml = doc.documentElement.outerHTML; } catch(e) {}
+                
                 // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
                 const markerKey = '${currentSemestre ? currentSemestre.val + ":" : ""}${currentTurma.val}';
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
@@ -755,7 +758,18 @@ async function iniciarScraping(cookies) {
            isRaceDone = true;
         }
 
-        if (iframeState.error === 'iframe_not_found_timeout') {
+        if (iframeState.error === 'table_not_found') {
+          const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
+          fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
+          log(`═══════════════════════════════════════`);
+          log(`A tabela de alunos não foi encontrada na Turma ${currentTurma.text}! Pulando para a próxima...`);
+          log(`Iframe encontrado: ${iframeState.foundId || '(nenhum)'}`);
+          log(`═══════════════════════════════════════`);
+          
+          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Turma ${currentTurma.text} sem tabela de alunos. Pulando.` });
+          scrapingState = 'SCRAPE_TURMA';
+          continue;
+        } else if (iframeState.error === 'iframe_not_found_timeout') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
           throw new Error(`Falha na extração do iframe para turma ${currentTurma.text}: ${iframeState.error} (Network Timeout)`);
