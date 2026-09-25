@@ -116,6 +116,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
            beginRequestHandler = () => { sawBeginRequest = true; };
            prm.add_beginRequest(beginRequestHandler);
            endRequestHandler = () => { 
+              if (hasAction && hasPRM && !sawBeginRequest) return;
               const msg = checkReady();
               if (msg) finish(msg); 
            };
