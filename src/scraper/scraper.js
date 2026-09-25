@@ -459,6 +459,26 @@ async function iniciarScraping(cookies) {
                finish({ error: 'iframe_not_found_timeout' });
             }, tMs);
 
+            const isVisible = (el) => {
+              if (!el) return false;
+              const style = el.ownerDocument && el.ownerDocument.defaultView
+                ? el.ownerDocument.defaultView.getComputedStyle(el)
+                : null;
+              if (!style) return true;
+              return style.display !== 'none' && style.visibility !== 'hidden';
+            };
+
+            const getViewerLoadingState = () => {
+              try {
+                if (typeof $find !== 'function') return null;
+                const viewer = $find('rptViewer');
+                if (!viewer || typeof viewer.get_isLoading !== 'function') return null;
+                return viewer.get_isLoading();
+              } catch (e) {
+                return null;
+              }
+            };
+
             const tryExtract = () => {
               try {
                 const possibleIds = [
@@ -492,6 +512,7 @@ async function iniciarScraping(cookies) {
                 let doc = null;
                 try { doc = iframe.contentDocument; } catch(e) { }
                 if (!doc || !doc.body) return; 
+                const reportRootDoc = doc;
 
                 // SSRS pode ter um sub-frame "report" dentro do frameset principal
                 try {
@@ -522,10 +543,16 @@ async function iniciarScraping(cookies) {
                 
                 if (trs.length === 0) {
                    if (doc.readyState !== 'complete') return;
+
+                   const viewerLoadingState = getViewerLoadingState();
+                   if (viewerLoadingState === true) return;
                    
                    // Sinal explícito do SSRS de carregamento: AsyncWait
-                   const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('div[id*="AsyncWait"]');
-                   if (waitPanel && waitPanel.style.display !== 'none' && waitPanel.style.visibility !== 'hidden') return;
+                   const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                   if (isVisible(waitPanel)) return;
+
+                   const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                   if (isVisible(outerWaitPanel)) return;
                    
                    // Se a div de relatório ou tabelas base não estão presentes, o SSRS ainda está gerando a estrutura
                    const hasStructure = doc.querySelectorAll('table').length > 0 || doc.querySelector('div[id*="ReportArea"]') !== null;
