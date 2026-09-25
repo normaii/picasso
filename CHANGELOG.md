@@ -4,6 +4,27 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.9](https://github.com/normaii/picasso/compare/v0.1.0-dev.8...v0.1.0-dev.9) (2026-09-25)
+
+### 🐛 Correções
+
+* **PIC-98:** corrigir ADR para refletir fallback real de logo placeholder ([cce105d](https://github.com/normaii/picasso/commit/cce105da79570f6680a94aaccd4a11ee1f62c39f))
+* **PIC-98:** corrigir label Data URI e escopo do ADR conforme revisao ([4b6507a](https://github.com/normaii/picasso/commit/4b6507a95f32e5decefa749ec4b0daad86ec0e91))
+* **PIC-98:** corrigir nome do campo no ADR (escolaLogo, nao logoUrl) ([fd2f8b5](https://github.com/normaii/picasso/commit/fd2f8b5a68bf2894882aab8699eb410c53eb08f9))
+* **PIC-98:** remover atributo required do campo logo da escola ([85b4d88](https://github.com/normaii/picasso/commit/85b4d885498d323b88216f29aa24fc30756619ff))
+* **PIC-98:** reverter type=url para type=text (aceitar Base64 puro) ([6012df4](https://github.com/normaii/picasso/commit/6012df48c11c411211d00190c7c72f8cbc6546f3))
+* **PIC-98:** substituir serviço via.placeholder.com quebrado por placehold.co ([6b77c67](https://github.com/normaii/picasso/commit/6b77c6715fab51c71981a5299b173e0945521f61))
+
+### 📚 Documentação
+
+* **PIC-98:** cria ADR de refinamento para o bug do logo obrigatorio ([8d11b57](https://github.com/normaii/picasso/commit/8d11b577c6b1c4f31e28f652e965b0657e39328b))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.8](https://github.com/normaii/picasso/compare/v0.1.0-dev.7...v0.1.0-dev.8) (2026-09-25)
 
 ### ✨ Funcionalidades
