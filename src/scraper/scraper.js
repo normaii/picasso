@@ -74,13 +74,13 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
           }
         }, ${timeoutMs});
 
-        const finish = () => {
+        const finish = (msg) => {
           if (!isDone) {
             isDone = true;
             cleanup();
             clearTimeout(timeoutTimer);
             const duration = Date.now() - startTime;
-            console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
+            console.log('[Scraper-DOM] Operação assíncrona concluída [' + (msg || 'Ready') + '] em ' + duration + 'ms');
             resolve(true);
           }
         };
@@ -98,8 +98,9 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
             if (${readyCondition ? 'true' : 'false'}) {
                const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
                if (!conditionMet) return false;
+               return 'Custom ReadyCondition Met';
             }
-            return true;
+            return 'Default ASP.NET Ready';
           } catch(e) { return false; }
         };
 
@@ -114,7 +115,10 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
            // Observa o início do postback para saber que a ação realmente disparou
            beginRequestHandler = () => { sawBeginRequest = true; };
            prm.add_beginRequest(beginRequestHandler);
-           endRequestHandler = () => { if (checkReady()) finish(); };
+           endRequestHandler = () => { 
+              const msg = checkReady();
+              if (msg) finish(msg); 
+           };
            prm.add_endRequest(endRequestHandler);
         }
 
@@ -122,7 +126,8 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         observer = new MutationObserver(() => {
            // Se há ação E temos PRM, só pode resolver após observar o beginRequest
            if (hasAction && hasPRM && !sawBeginRequest) return;
-           if (checkReady()) { finish(); }
+           const msg = checkReady();
+           if (msg) { finish(msg); }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
@@ -141,7 +146,10 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         // Fallback: se NÃO há ação, verifica readiness imediatamente no próximo tick
         if (!hasAction) {
           setTimeout(() => {
-             if (!isDone && checkReady()) { finish(); }
+             if (!isDone) {
+                const msg = checkReady();
+                if (msg) { finish(msg); }
+             }
           }, 100);
         }
         // Se há ação que cause postback parcial, os listeners do PageRequestManager cuidam.
