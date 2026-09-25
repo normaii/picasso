@@ -32,14 +32,10 @@ function getDbPath() {
  */
 function saveDb() {
   if (!dbPath) return;
-  // Gravação atômica para evitar corrupção de JSON em crash
+  // Gravação atômica: grava em .tmp e renomeia para evitar corrupção em crash
   const tempPath = `${dbPath}.tmp`;
-  try {
-    fs.writeFileSync(tempPath, JSON.stringify(dbData, null, 2), 'utf-8');
-    fs.renameSync(tempPath, dbPath);
-  } catch (err) {
-    console.error('[DB] Erro fatal ao salvar o banco de dados de forma atômica:', err);
-  }
+  fs.writeFileSync(tempPath, JSON.stringify(dbData, null, 2), 'utf-8');
+  fs.renameSync(tempPath, dbPath);
 }
 
 /**
@@ -64,19 +60,29 @@ function initDatabase() {
   dbInitialized = true;
   console.log(`[DB] Banco de dados JSON inicializado em: ${dbPath}`);
 
-  // Cleanup assíncrono de pastas temporárias zumbis do arquivamento (PIC-3)
+  // Cleanup SÍNCRONO de pastas temporárias zumbis do arquivamento (PIC-3)
+  // Executado antes do servidor aceitar requisições para evitar race conditions.
   const dataDir = path.dirname(dbPath);
   const fotosOficiais = path.join(dataDir, 'fotos');
-  const fotosExist = fs.existsSync(fotosOficiais);
   
-  fs.readdir(dataDir, (err, items) => {
-    if (err) return;
+  try {
+    const items = fs.readdirSync(dataDir);
     items.forEach(item => {
       if (item.startsWith('fotos_temp_delete_')) {
         const fullPath = path.join(dataDir, item);
+        const commitMarker = path.join(fullPath, '.archive_committed');
+        const fotosExist = fs.existsSync(fotosOficiais);
         
-        if (!fotosExist) {
-          // Recuperação de Crash: A pasta oficial sumiu, significa que a transação não terminou. Restaurar as fotos.
+        if (fs.existsSync(commitMarker)) {
+          // Expurgo JÁ COMMITOU: é lixo seguro. Apagar.
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+            console.log(`[Archive Cleanup] Lixo pós-commit removido: ${item}`);
+          } catch(e) {
+            console.error(`[Archive Cleanup] Falha ao remover ${item}:`, e.message);
+          }
+        } else if (!fotosExist) {
+          // Crash PRÉ-COMMIT: A pasta oficial sumiu e a transação não terminou. Restaurar.
           try {
             fs.renameSync(fullPath, fotosOficiais);
             console.warn(`[Archive] RECUPERAÇÃO DE EMERGÊNCIA: Fotos restauradas a partir de ${item}`);
@@ -84,14 +90,19 @@ function initDatabase() {
             console.error('[Archive] Falha ao tentar recuperar fotos da pasta zumbi:', e);
           }
         } else {
-          // Fluxo normal: A pasta oficial já existe (ou foi recriada), isso é lixo do expurgo passado.
-          fs.rm(fullPath, { recursive: true, force: true }, (err) => {
-            if (!err) console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
-          });
+          // Pasta oficial existe E não há marcador de commit: lixo ambíguo, apagar com segurança.
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+            console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
+          } catch(e) {
+            console.error(`[Archive Cleanup] Falha ao remover ${item}:`, e.message);
+          }
         }
       }
     });
-  });
+  } catch(e) {
+    console.error('[Archive Cleanup] Erro ao varrer diretório de dados:', e.message);
+  }
 }
 
 // ============================================================
@@ -469,7 +480,19 @@ function archiveAndPurge() {
 
     const warnings = [];
 
-    // 5. Exclusão permanente física síncrona (Crash-safe)
+    // 5. Marcar a transação como COMMITTED antes da exclusão física
+    // Isso permite que o boot recovery saiba que o expurgo foi bem-sucedido
+    // e não tente restaurar as fotos em caso de crash durante a deleção.
+    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+      try {
+        fs.writeFileSync(path.join(fotosTempDir, '.archive_committed'), timestamp, 'utf-8');
+      } catch(e) {
+        // Não é fatal: se o marcador não for gravado, o boot tratará como crash pré-commit (safe)
+        console.warn('[Archive] Não foi possível gravar marcador de commit:', e.message);
+      }
+    }
+
+    // 6. Exclusão permanente física síncrona (Crash-safe)
     if (fotosRenamed && fs.existsSync(fotosTempDir)) {
       try {
         fs.rmSync(fotosTempDir, { recursive: true, force: true });

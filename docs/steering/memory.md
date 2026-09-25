@@ -1,6 +1,6 @@
 # Picasso — Steering Memory
 
-> **Última atualização**: 2026-09-17
+> **Última atualização**: 2026-09-25
 > **Propósito**: Documentação viva do projeto Picasso. Cada seção descreve **como** um módulo ou aspecto do sistema funciona atualmente e **por quê**, referenciando o ADR que justifica o comportamento.
 >
 > Este documento é a **porta de entrada** para qualquer agente de IA ou desenvolvedor que precise entender a lógica do projeto sem ler código.
@@ -111,6 +111,23 @@ Gera PDFs A4 com carteirinhas dos alunos.
 - **Comportamento atual**: Arquivo JSON simples lido inteiramente em memória ao iniciar. Salvamento síncrono a cada mutação. O banco gerencia as tabelas de `alunos`, `log_scraping` e `configuracoes` globais.
 - **Localização**: `%APPDATA%/picasso/data/picasso_db.json`
 - **Ref**: [ADR-004](ADR/ADR-ALPHA-BASELINE.md#adr-004), [PIC-2](ADR/PIC-2.md)
+
+### 3.6 Módulo de Arquivamento e Expurgo (PIC-3 — LGPD)
+
+Implementa o encerramento do ciclo letivo: soft-delete de banco e PDFs + hard-delete de fotos.
+
+- **Comportamento atual**: Botão "Encerrar Ciclo Letivo" na aba Configurações abre modal de dupla confirmação (digitar "ENCERRAR"). Ao confirmar:
+  1. Copia o JSON do banco para `archive_db/` com timestamp.
+  2. Move os PDFs para `pdfs/archive_pdfs/` com timestamp.
+  3. Renomeia `fotos/` para pasta temporária, grava marcador `.archive_committed`, e exclui fisicamente.
+  4. Limpa o banco de dados em memória (alunos, logs, IDs) e persiste via gravação atômica.
+- **Gravação Atômica**: `saveDb()` grava em `picasso_db.json.tmp` e renomeia para `picasso_db.json`. Exceções propagam para abortar o expurgo.
+- **Concorrência**: Flag global `isArchiving` (try/finally) bloqueia scraping, download de fotos e geração de PDFs. Flag `isScrapingRunning` no `scraper.js` previne duplo scraping e estados zumbis.
+- **Crash Recovery**: No boot (`initDatabase`), varredura **síncrona** de pastas `fotos_temp_delete_*`. Se a pasta tem marcador `.archive_committed` → lixo pós-commit (apagar). Se não tem marcador e `fotos/` sumiu → crash pré-commit (restaurar fotos).
+- **Autenticação**: Header `x-admin-key` com valor de `process.env.ADMIN_SECRET` (fallback hardcoded para Beta local).
+- **Acessibilidade**: Modal com `role="dialog"`, `aria-modal`, Focus Management e tecla ESC.
+- **Decisões Diferidas**: Autenticação robusta, coordenação de PDF (Fase 3), race condition assíncrono do PhotoFetcher → documentados no ADR como backlog futuro.
+- **Ref**: [PIC-3](ADR/PIC-3.md)
 
 ---
 
@@ -319,6 +336,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-25 | PIC-3: Adicionada seção 3.6 (Módulo de Arquivamento e Expurgo LGPD). ADR atualizado com decisões de confiabilidade (V6-V9) e backlog diferido. |
 | 2026-09-22 | PIC-13: Adicionada decisão técnica de Scraper Reativo ao Backlog e criação do plano de QA para Throttling de rede. |
 | 2026-09-22 | PIC-28: Mitigação de XSS, Sanitização e Defense in Depth no Gerador de PDF. |
 | 2026-09-21 | PIC-2: Módulo de Armazenamento atualizado para incluir objeto `configuracoes`. Registro de decisões atualizado. |
