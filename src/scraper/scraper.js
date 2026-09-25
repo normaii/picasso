@@ -392,7 +392,7 @@ async function iniciarScraping(cookies) {
               if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId };
               
               const anoCurrent = anoOpts.find(o => o.val === getVal(anoId));
-              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: null };
+              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: 'rptViewer_ctl00_ctl11_ddValue' };
               
               return { action: 'done' };
             } catch (e) {
@@ -580,6 +580,7 @@ async function iniciarScraping(cookies) {
                if (mainObserver) mainObserver.disconnect();
                if (iframeObserver) iframeObserver.disconnect();
                if (timeoutTimer) clearTimeout(timeoutTimer);
+               if (window._emptyTimer) clearTimeout(window._emptyTimer);
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
                }
@@ -709,7 +710,17 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   return; // Continua observando até o timeout, a menos que possamos identificar positivamente o estado vazio
+                   if (!window._emptyTimer) {
+                      window._emptyTimer = setTimeout(() => {
+                         finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
+                      }, 2000); // 2 segundos curtos de tolerância
+                   }
+                   return; 
+                }
+                
+                if (window._emptyTimer) {
+                   clearTimeout(window._emptyTimer);
+                   window._emptyTimer = null;
                 }
                 
                 const markerKey2 = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
