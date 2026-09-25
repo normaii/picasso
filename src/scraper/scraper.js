@@ -432,6 +432,8 @@ async function iniciarScraping(cookies) {
             : null;
           
           await waitAspNetReady(win, `
+            const nextEl = document.getElementById('${nextDropdownId}');
+            if (nextEl) { nextEl.innerHTML = ''; }
             const el = document.getElementById('${setupState.id}');
             el.value = ${JSON.stringify(setupState.opt.val)};
             el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -485,10 +487,12 @@ async function iniciarScraping(cookies) {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Analisando Semestre: ${currentSemestre.text}` });
 
         await waitAspNetReady(win, `
+          const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+          if (nextEl) { nextEl.innerHTML = ''; }
           const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
           el.value = ${JSON.stringify(currentSemestre.val)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
-        `);
+        `, `return (() => { const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
         scrapingState = 'FETCH_TURMAS';
       }
 
