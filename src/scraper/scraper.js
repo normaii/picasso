@@ -504,6 +504,10 @@ async function iniciarScraping(cookies) {
                         if (!pendingNestedFrames.has(subFrame)) {
                           pendingNestedFrames.add(subFrame);
                           subFrame.addEventListener('load', () => {
+                            if (iframeObserver) {
+                              iframeObserver.disconnect();
+                              iframeObserver = null;
+                            }
                             pendingNestedFrames.delete(subFrame);
                             tryExtract();
                           }, { once: true });
