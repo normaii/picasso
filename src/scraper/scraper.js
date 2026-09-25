@@ -677,6 +677,9 @@ async function iniciarScraping(cookies) {
                   const subFrame = doc.getElementById('report');
                   if (subFrame) {
                      if (subFrameRef !== subFrame) {
+                        if (subFrameRef && subFrameLoadHandler) {
+                           subFrameRef.removeEventListener('load', subFrameLoadHandler);
+                        }
                         subFrameRef = subFrame;
                         subFrameLoadHandler = tryExtract;
                         subFrame.addEventListener('load', subFrameLoadHandler);
@@ -717,15 +720,15 @@ async function iniciarScraping(cookies) {
 
                 // Apenas processa se houver uma nova tabela que o AJAX acabou de criar (ou se for um doc novo inteiro)
                 const allTables = Array.from(doc.querySelectorAll('table'));
-                if (allTables.length > 0) {
-                    const hasNewTables = allTables.some(t => !t.hasAttribute('data-old-report'));
-                    if (!hasNewTables) return; // O UpdatePanel ainda não substituiu o DOM antigo!
-                }
+                if (allTables.length === 0) return; // Nenhuma tabela ainda (SSRS sempre gera tabelas, se está vazio, está carregando)
+                
+                const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
+                if (newTables.length === 0) return; // O UpdatePanel ainda não substituiu o DOM antigo!
 
                 // Se passou por todas as gates de carregamento, o relatório carregou!
                 reportSuccessfullyLoaded = true;
 
-                const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
+                const trs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr'))).filter(tr => {
                   const tds = tr.querySelectorAll('td');
                   if (tds.length < 4) return false;
                   return /^\\d{10,}$/.test(tds[0].innerText.trim());
