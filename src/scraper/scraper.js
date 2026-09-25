@@ -580,7 +580,10 @@ async function iniciarScraping(cookies) {
                if (mainObserver) mainObserver.disconnect();
                if (iframeObserver) iframeObserver.disconnect();
                if (timeoutTimer) clearTimeout(timeoutTimer);
-               if (window._emptyTimer) clearTimeout(window._emptyTimer);
+               if (window._emptyTimer) {
+                  clearTimeout(window._emptyTimer);
+                  window._emptyTimer = null;
+               }
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
                }
@@ -712,6 +715,7 @@ async function iniciarScraping(cookies) {
                 if (trs.length === 0) {
                    if (!window._emptyTimer) {
                       window._emptyTimer = setTimeout(() => {
+                         window._emptyTimer = null;
                          finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
                       }, 2000); // 2 segundos curtos de tolerância
                    }
