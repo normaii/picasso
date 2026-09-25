@@ -462,6 +462,7 @@ async function iniciarScraping(cookies) {
             }, tMs);
 
             const tryExtract = () => {
+              if (isDone) return;
               try {
                 const possibleIds = [
                   'rptViewer_ReportFrame',
