@@ -139,30 +139,13 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         }
 
         // Fallback: se NÃO há ação, verifica readiness imediatamente no próximo tick
-        // Se há ação MAS PRM não está disponível (full postback), precisa aguardar
-        // o carregamento completo da página via evento de navegação
         if (!hasAction) {
           setTimeout(() => {
              if (!isDone && checkReady()) { finish(); }
           }, 100);
-        } else if (hasAction && !hasPRM) {
-          // Full postback: sem PRM, a página vai recarregar completamente.
-          // Escutamos o evento 'load' do window como sinal de que o novo documento carregou
-          const onPageLoad = () => {
-            window.removeEventListener('load', onPageLoad);
-            // Após o load, poll até checkReady ser true (ex: dropdowns repopulados)
-            const postLoadPoll = setInterval(() => {
-               if (isDone) { clearInterval(postLoadPoll); return; }
-               if (checkReady()) {
-                  clearInterval(postLoadPoll);
-                  finish();
-               }
-            }, 200);
-            setTimeout(() => { clearInterval(postLoadPoll); }, ${timeoutMs});
-          };
-          window.addEventListener('load', onPageLoad);
-          // Segurança: se o load não disparar, o timeout global vai resolver
         }
+        // Se há ação que cause postback parcial, os listeners do PageRequestManager cuidam.
+        // Se a ação causar full postback, o contexto será destruído e trataremos no Node.js.
       })
     `);
 
@@ -175,8 +158,37 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
     let result;
     try {
       result = await Promise.race([ waitPromise, cancelPoll() ]);
-    } finally {
-      isRaceDone = true;
+    } catch (err) {
+      if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated'))) {
+         log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
+         return new Promise((resolve, reject) => {
+            const timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
+            const onFinishLoad = async () => {
+               clearTimeout(timeoutTimer);
+               win.webContents.removeListener('did-finish-load', onFinishLoad);
+               if (readyCondition) {
+                  try {
+                     await win.webContents.executeJavaScript(`
+                        new Promise(res => {
+                           const poll = setInterval(() => {
+                              try {
+                                const met = new Function(${JSON.stringify(readyCondition)})();
+                                if (met) { clearInterval(poll); res(true); }
+                              } catch(e) {}
+                           }, 200);
+                           setTimeout(() => { clearInterval(poll); res(true); }, ${timeoutMs});
+                        })
+                     `);
+                     resolve(true);
+                  } catch (e) { reject(e); }
+               } else {
+                  resolve(true);
+               }
+            };
+            win.webContents.on('did-finish-load', onFinishLoad);
+         });
+      }
+      throw err; // Propaga os timeouts corretamente ao invés de ignorar!
     }
     
     if (result && result.cancelled) {
@@ -184,9 +196,6 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
     }
     
     return true;
-  } catch (err) {
-    throw err; // Propaga os timeouts corretamente ao invés de ignorar!
-  }
 }
 
 let isScrapingRunning = false;
@@ -490,8 +499,18 @@ async function iniciarScraping(cookies) {
           mensagem: `Extraindo turma: ${currentTurma.text} (restam ${turmasToScrape.length})` 
         });
 
-        // Seleciona a turma e clica "View Report"
-        await waitAspNetReady(win, `
+        // Invalida o relatório antigo (se houver) e clica "View Report" sem usar waitAspNetReady.
+        // Ações de iframe não emitem beginRequest no PRM pai, então roteamos diretamente para WAIT_IFRAME_REPORT.
+        await win.webContents.executeJavaScript(`
+          try {
+             document.querySelectorAll('iframe, frame').forEach(f => {
+                if (f.contentDocument && f.contentDocument.body) {
+                   f.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
+                   f.contentDocument.body.innerHTML = ''; 
+                }
+             });
+          } catch(e) {}
+
           document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${currentTurma.val}';
           document.getElementById('rptViewer_ctl00_ctl00').click();
         `);
