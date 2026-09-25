@@ -542,7 +542,12 @@ async function iniciarScraping(cookies) {
           try {
              document.querySelectorAll('iframe, frame').forEach(f => {
                 if (f.contentDocument && f.contentDocument.body) {
-                   f.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
+                    f.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
+                    f.contentDocument.querySelectorAll('iframe, frame').forEach(subF => {
+                       if (subF.contentDocument && subF.contentDocument.body) {
+                          subF.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
+                       }
+                    });
                    // f.contentDocument.body.innerHTML = ''; // Removido: preserva iframe para evitar timeout do SSRS viewer 
                 }
              });
@@ -666,7 +671,7 @@ async function iniciarScraping(cookies) {
 
                 // Agora doc aponta para o documento final (nested ou outer)
                 // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
-                const markerKey = `${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}`;
+                const markerKey = '${currentSemestre ? currentSemestre.val + ":" : ""}${currentTurma.val}';
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
                 if (scrapedVal === markerKey) return;
                 if (scrapedVal === 'INVALIDATING') return;
@@ -701,8 +706,7 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   finish({ error: null, alunos: [] });
-                   return;
+                   return; // Continua observando até o timeout, a menos que possamos identificar positivamente o estado vazio
                 }
                 
                 const markerKey2 = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
