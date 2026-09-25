@@ -181,7 +181,7 @@ async function iniciarScraping(cookies) {
     log(`Página do relatório carregada: ${reportUrl}`);
     
     // Aguarda o carregamento inicial de forma reativa e espera as opções do Regional
-    const initialReady = await waitAspNetReady(win, '', "return document.getElementById('rptViewer_ctl00_ctl03_ddValue') !== null && document.getElementById('rptViewer_ctl00_ctl03_ddValue').options.length > 0");
+    const initialReady = await waitAspNetReady(win, '', "return (() => { const el = document.getElementById('rptViewer_ctl00_ctl03_ddValue'); return el && Array.from(el.options).some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()");
     if (!initialReady) throw new Error('Timeout carregando página inicial.');
 
     let scrapingState = 'SETUP_FILTERS';
