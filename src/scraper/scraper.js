@@ -195,9 +195,40 @@ async function iniciarScraping(cookies) {
     atualizarLogScraping(logId, { status: 'navegando_relatorio', mensagem: 'Acessando relatório de alunos...' });
     
     const reportUrl = `${BASE_URL}/ConexaoEducacao/Relatorio/PageViewer.aspx?report=RelAlunosMatPTurma&grp=GESTAO`;
-    await win.loadURL(reportUrl);
-    log(`Página do relatório carregada: ${reportUrl}`);
     
+    const cfg = getConfiguracoes();
+    const rawTimeout = String(cfg.timeoutScraping || '').trim();
+    const parsedTimeout = Number(rawTimeout);
+    const initialTimeoutMs = (rawTimeout !== '' && Number.isInteger(parsedTimeout) && parsedTimeout > 0) ? parsedTimeout * 1000 : 60000;
+
+    let isLoadRaceDone = false;
+    const cancelLoadPoll = async () => {
+      while (!isCancelled() && !isLoadRaceDone) { await delay(500); }
+      return { error: 'cancelled' };
+    };
+
+    const loadTimeoutPromise = new Promise(resolve => setTimeout(() => resolve({ error: 'timeout' }), initialTimeoutMs));
+
+    let loadState;
+    try {
+      loadState = await Promise.race([ 
+        win.loadURL(reportUrl).then(() => ({ success: true })).catch(e => ({ error: e.message })), 
+        cancelLoadPoll(),
+        loadTimeoutPromise
+      ]);
+    } finally {
+      isLoadRaceDone = true;
+    }
+
+    if (loadState.error === 'cancelled') {
+      throw new Error('Sincronização cancelada pelo usuário.');
+    } else if (loadState.error === 'timeout') {
+      throw new Error('Timeout carregando página inicial do relatório.');
+    } else if (loadState.error) {
+      throw new Error(`Erro ao carregar página: ${loadState.error}`);
+    }
+
+    log(`Página do relatório carregada: ${reportUrl}`);
     // Aguarda o carregamento inicial de forma reativa e espera as opções do Regional
     const initialReady = await waitAspNetReady(win, '', "return (() => { const el = document.getElementById('rptViewer_ctl00_ctl03_ddValue'); return el && Array.from(el.options).some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()");
     if (!initialReady) throw new Error('Timeout carregando página inicial.');
@@ -535,6 +566,19 @@ async function iniciarScraping(cookies) {
                    iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                 }
 
+                // Verifica indicadores de carregamento SSRS antes de processar qualquer coisa
+                if (doc.readyState !== 'complete') return;
+
+                const viewerLoadingState = getViewerLoadingState();
+                if (viewerLoadingState === true) return;
+                
+                // Sinal explícito do SSRS de carregamento: AsyncWait
+                const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                if (isVisible(waitPanel)) return;
+
+                const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                if (isVisible(outerWaitPanel)) return;
+
                 const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
                   const tds = tr.querySelectorAll('td');
                   if (tds.length < 4) return false;
@@ -542,18 +586,6 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   if (doc.readyState !== 'complete') return;
-
-                   const viewerLoadingState = getViewerLoadingState();
-                   if (viewerLoadingState === true) return;
-                   
-                   // Sinal explícito do SSRS de carregamento: AsyncWait
-                   const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                   if (isVisible(waitPanel)) return;
-
-                   const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                   if (isVisible(outerWaitPanel)) return;
-                   
                    // Se a div de relatório ou tabelas base não estão presentes, o SSRS ainda está gerando a estrutura
                    const hasStructure = doc.querySelectorAll('table').length > 0 || doc.querySelector('div[id*="ReportArea"]') !== null;
                    if (!hasStructure) return;
