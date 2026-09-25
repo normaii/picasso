@@ -32,97 +32,100 @@ function log(msg) {
 }
 
 /**
- * Aguarda reativamente o ASP.NET terminar postbacks e a rede ociosa.
+ * Executa uma ação (clique ou evento) e aguarda reativamente o ASP.NET terminar o postback.
+ * Resolve a Race Condition amarrando o listener ANTES de despachar a ação.
  */
-async function waitAspNetReady(win) {
+async function waitAspNetReady(win, actionScript = '') {
   const cfg = getConfiguracoes();
   const parsed = parseInt(cfg.timeoutScraping);
-  const timeoutMs = (!isNaN(parsed) && parsed > 0) ? parsed * 1000 : 60000;
+  const timeoutMs = (Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
   try {
     await win.webContents.executeJavaScript(`
       new Promise((resolve, reject) => {
         const startTime = Date.now();
-        
-        // Evita race condition: aguarda 50ms para que __doPostBack seja registrado na engine JS após o dispatchEvent
+        console.log('[Scraper-DOM] Preparando ação atômica e aguardando postback...');
+
+        let isDone = false;
+        let endRequestHandler = null;
+        let prm = null;
+        let observer = null;
+
+        const cleanup = () => {
+          if (observer) observer.disconnect();
+          if (prm && endRequestHandler) {
+            try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
+          }
+        };
+
+        const timeoutTimer = setTimeout(() => {
+          if (!isDone) {
+            isDone = true;
+            cleanup();
+            console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
+            reject(new Error('Network Timeout'));
+          }
+        }, ${timeoutMs});
+
+        const finish = () => {
+          if (!isDone) {
+            isDone = true;
+            cleanup();
+            clearTimeout(timeoutTimer);
+            const duration = Date.now() - startTime;
+            console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
+            resolve(true);
+          }
+        };
+
+        // Verifica se o DOM já está limpo
+        const checkReady = () => {
+          try {
+            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+              if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) return false;
+            }
+            const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
+            if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
+            return true;
+          } catch(e) { return false; }
+        };
+
+        // Escuta eventos do ASP.NET
+        if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+           prm = Sys.WebForms.PageRequestManager.getInstance();
+           endRequestHandler = () => { finish(); };
+           prm.add_endRequest(endRequestHandler);
+        }
+
+        // Escuta mutações no DOM (UpdateProgress)
+        observer = new MutationObserver(() => {
+           if (checkReady()) { finish(); }
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+        // Executa a ação injetada
+        try {
+          ${actionScript || '/* Apenas aguarda carregamento inicial */'}
+        } catch(e) {
+          if (!isDone) {
+            isDone = true;
+            cleanup();
+            clearTimeout(timeoutTimer);
+            reject(new Error('Erro na ação injetada: ' + e.message));
+          }
+        }
+
+        // Se a ação não disparou um postback (ou se foi apenas um wait), tenta verificar se já está pronto no próximo tick
         setTimeout(() => {
-          console.log('[Scraper-DOM] Aguardando DOM/Rede ficar ocioso...');
-          
-          const checkReady = () => {
-            try {
-              if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-                if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) {
-                  return false;
-                }
-              }
-              const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
-              if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') {
-                return false;
-              }
-              return true;
-            } catch(e) { return false; }
-          };
-
-          let isDone = false;
-          let observer = null;
-          let endRequestHandler = null;
-          let prm = null;
-
-          const cleanup = () => {
-            if (observer) observer.disconnect();
-            if (prm && endRequestHandler) {
-              try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
-            }
-          };
-
-          if (checkReady()) {
-            console.log('[Scraper-DOM] Rede já está ociosa (0ms)');
-            return resolve(true);
-          }
-
-          const timeoutTimer = setTimeout(() => {
-            if (!isDone) {
-              isDone = true;
-              cleanup();
-              console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
-              reject(new Error('Network Timeout'));
-            }
-          }, ${timeoutMs});
-
-          const finish = () => {
-            if (!isDone) {
-              isDone = true;
-              cleanup();
-              clearTimeout(timeoutTimer);
-              const duration = Date.now() - startTime;
-              console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
-              resolve(true);
-            }
-          };
-
-          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-             prm = Sys.WebForms.PageRequestManager.getInstance();
-             endRequestHandler = () => {
-                finish();
-             };
-             prm.add_endRequest(endRequestHandler);
-          }
-
-          observer = new MutationObserver(() => {
-             if (checkReady()) {
-                finish();
-             }
-          });
-          observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-        }, 50);
+           if (!isDone && checkReady()) {
+              finish();
+           }
+        }, 100);
       })
     `);
     return true;
   } catch (err) {
-    if (err.message.includes('Network Timeout')) {
-      return false;
-    }
-    throw err;
+    throw err; // Propaga os timeouts corretamente ao invés de ignorar!
   }
 }
 
@@ -201,14 +204,6 @@ async function iniciarScraping(cookies) {
         break;
       }
       
-      // Sempre espera o ASP.NET terminar os processamentos assíncronos
-      const ready = await waitAspNetReady(win);
-      if (!ready) {
-        log('TIMEOUT! ASP.NET preso em isInAsyncPostBack.');
-        atualizarLogScraping(logId, { status: 'erro', mensagem: 'Servidor demorou muito a responder (Timeout ASP.NET).' });
-        break;
-      }
-
       // ==================================================
       // ESTADO: SETUP_FILTERS
       // ==================================================
@@ -278,12 +273,10 @@ async function iniciarScraping(cookies) {
           log(`${label}: ${setupState.opt.text} ✔`);
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${label}: ${setupState.opt.text} selecionado(a).` });
           
-          await win.webContents.executeJavaScript(`
-            (() => {
-              const el = document.getElementById('${setupState.id}');
-              el.value = '${setupState.opt.val}';
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-            })();
+          await waitAspNetReady(win, `
+            const el = document.getElementById('${setupState.id}');
+            el.value = '${setupState.opt.val}';
+            el.dispatchEvent(new Event('change', { bubbles: true }));
           `);
         } else if (setupState.action === 'done') {
           log('Filtros base preenchidos. Indo capturar semestres...');
@@ -333,12 +326,10 @@ async function iniciarScraping(cookies) {
         log(`Selecionando Semestre: ${currentSemestre.text}`);
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Analisando Semestre: ${currentSemestre.text}` });
 
-        await win.webContents.executeJavaScript(`
-          (() => {
-            const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
-            el.value = '${currentSemestre.val}';
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          })();
+        await waitAspNetReady(win, `
+          const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
+          el.value = '${currentSemestre.val}';
+          el.dispatchEvent(new Event('change', { bubbles: true }));
         `);
         scrapingState = 'FETCH_TURMAS';
       }
@@ -395,15 +386,11 @@ async function iniciarScraping(cookies) {
         });
 
         // Seleciona a turma e clica "View Report"
-        await win.webContents.executeJavaScript(`
-          (() => {
-            document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${currentTurma.val}';
-            document.getElementById('rptViewer_ctl00_ctl00').click();
-          })();
+        await waitAspNetReady(win, `
+          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${currentTurma.val}';
+          document.getElementById('rptViewer_ctl00_ctl00').click();
         `);
         
-        // Iframe load é separado do PageRequestManager
-        await delay(5000); 
         scrapingState = 'WAIT_IFRAME_REPORT';
       }
 
@@ -413,14 +400,32 @@ async function iniciarScraping(cookies) {
         const iframeState = await win.webContents.executeJavaScript(`
           new Promise((resolve) => {
             const startTime = Date.now();
-            // Utiliza o timeout global ou 60s
             const cfg = typeof getConfiguracoes !== 'undefined' ? getConfiguracoes() : {};
             const parsed = parseInt(cfg.timeoutScraping);
-            const tMs = (!isNaN(parsed) && parsed > 0) ? parsed * 1000 : 60000;
+            const tMs = (Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
             
-            let interval = null;
+            let isDone = false;
+            let observer = null;
+            let timeoutTimer = null;
 
-            const check = () => {
+            const cleanup = () => {
+               if (observer) observer.disconnect();
+               if (timeoutTimer) clearTimeout(timeoutTimer);
+            };
+
+            const finish = (result) => {
+               if (!isDone) {
+                  isDone = true;
+                  cleanup();
+                  resolve(result);
+               }
+            };
+
+            timeoutTimer = setTimeout(() => {
+               finish({ error: 'iframe_not_found_timeout' });
+            }, tMs);
+
+            const tryExtract = () => {
               try {
                 const possibleIds = [
                   'rptViewer_ReportFrame',
@@ -448,45 +453,24 @@ async function iniciarScraping(cookies) {
                   }
                 }
                 
-                if (!iframe) {
-                  if (Date.now() - startTime > tMs) {
-                    clearInterval(interval);
-                    return resolve({ error: 'iframe_not_found_timeout' });
-                  }
-                  return; // Continua tentando
-                }
+                if (!iframe) return; 
                 
                 let doc = null;
-                try { doc = iframe.contentDocument; } catch(e) { /* ignora */ }
-                if (!doc || !doc.body) {
-                  if (Date.now() - startTime > tMs) {
-                    clearInterval(interval);
-                    return resolve({ error: 'iframe_no_document_timeout' });
-                  }
-                  return;
-                }
+                try { doc = iframe.contentDocument; } catch(e) { }
+                if (!doc || !doc.body) return; 
                 
                 try {
                   const subFrame = doc.getElementById('report');
-                  if (subFrame && subFrame.contentDocument) {
-                    doc = subFrame.contentDocument;
-                  }
+                  if (subFrame && subFrame.contentDocument) doc = subFrame.contentDocument;
                 } catch(e) { }
 
                 const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
                   const tds = tr.querySelectorAll('td');
                   if (tds.length < 4) return false;
-                  const txt = tds[0].innerText.trim();
-                  return /^\\d{10,}$/.test(txt);
+                  return /^\\d{10,}$/.test(tds[0].innerText.trim());
                 });
                 
-                if (trs.length === 0) {
-                  if (Date.now() - startTime > tMs) {
-                    clearInterval(interval);
-                    return resolve({ error: 'table_not_found', html: doc.body.innerHTML.substring(0, 5000), foundId: foundId });
-                  }
-                  return; // Continua tentando
-                }
+                if (trs.length === 0) return; 
                 
                 const alunos = [];
                 trs.forEach(tr => {
@@ -498,17 +482,24 @@ async function iniciarScraping(cookies) {
                   }
                 });
                 
-                clearInterval(interval);
-                resolve({ error: null, alunos, foundId: foundId });
+                finish({ error: null, alunos, foundId: foundId });
               } catch (e) {
-                if (Date.now() - startTime > tMs) {
-                  clearInterval(interval);
-                  resolve({ error: 'js_exception', message: e.message });
-                }
+                 // Ignore errors during check, as DOM might be in flux
               }
             };
 
-            interval = setInterval(check, 500);
+            observer = new MutationObserver(() => {
+               tryExtract();
+            });
+            observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+            document.body.addEventListener('load', (e) => {
+               if (e.target && (e.target.tagName === 'IFRAME' || e.target.tagName === 'FRAME')) {
+                  tryExtract();
+               }
+            }, true);
+
+            tryExtract();
           })
         `);
 
