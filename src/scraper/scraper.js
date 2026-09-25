@@ -436,6 +436,7 @@ async function iniciarScraping(cookies) {
             let isDone = false;
             let mainObserver = null;
             let iframeObserver = null;
+            let iframeObserverDoc = null;
             let timeoutTimer = null;
             const pendingNestedFrames = new WeakSet();
             let loadHandler = null;
@@ -443,6 +444,7 @@ async function iniciarScraping(cookies) {
             const cleanup = () => {
                if (mainObserver) mainObserver.disconnect();
                if (iframeObserver) iframeObserver.disconnect();
+               iframeObserverDoc = null;
                if (timeoutTimer) clearTimeout(timeoutTimer);
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
@@ -508,16 +510,17 @@ async function iniciarScraping(cookies) {
                             if (iframeObserver) {
                               iframeObserver.disconnect();
                               iframeObserver = null;
+                              iframeObserverDoc = null;
                             }
                             pendingNestedFrames.delete(subFrame);
                             tryExtract();
                           }, { once: true });
                         }
 
-                        if (!iframeObserver || iframeObserver.doc !== doc) {
+                        if (!iframeObserver || iframeObserverDoc !== doc) {
                            if (iframeObserver) iframeObserver.disconnect();
                            iframeObserver = new MutationObserver(tryExtract);
-                           iframeObserver.doc = doc;
+                           iframeObserverDoc = doc;
                            iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                         }
                         return;
@@ -530,10 +533,10 @@ async function iniciarScraping(cookies) {
                 // Checa/Seta a marcação no documento real que contém a tabela
                 if (doc.body.hasAttribute('data-scraped-turma')) return;
 
-                if (!iframeObserver || iframeObserver.doc !== doc) {
+                if (!iframeObserver || iframeObserverDoc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
                    iframeObserver = new MutationObserver(tryExtract);
-                   iframeObserver.doc = doc;
+                   iframeObserverDoc = doc;
                    iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                 }
 
