@@ -552,7 +552,6 @@ async function iniciarScraping(cookies) {
 
                    const outerWaitPanel = document.getElementById('AsyncWait_Wait') || document.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
                    if (isVisible(outerWaitPanel)) return;
-                   if (viewerLoadingState !== false && outerWaitPanel) return;
                    
                    // Se a div de relatório ou tabelas base não estão presentes, o SSRS ainda está gerando a estrutura
                    const hasStructure = doc.querySelectorAll('table').length > 0 || doc.querySelector('div[id*="ReportArea"]') !== null;
