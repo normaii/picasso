@@ -10,7 +10,7 @@ Isto ocorreu porque o `<input>` continha a tag `required` em seu código HTML. C
 Para corrigir a vulnerabilidade de usabilidade:
 1. **Frontend**: Remover o atributo `required` do campo de input correspondente ao "Logo da Escola" no arquivo `public/index.html`.
 2. **Backend**: Assegurar que o módulo de gravação (na API/DB e no frontend `app.js`) aceite a string vazia `""` como um valor válido para `logoUrl`, atualizando as `configuracoes` globais.
-3. **Geração**: Se `logoUrl` estiver em branco, o gerador de PDF usará a logo padrão embarcada (`assets/brasaorj.png` ou similar), que é o comportamento já esperado quando as variáveis de template não são preenchidas.
+3. **Geração**: Se `logoUrl` estiver em branco, o gerador de PDF (`src/generator/pdfGenerator.js`, linha 67) já aplica um fallback para uma imagem placeholder externa (`https://via.placeholder.com/150/...`). Este comportamento será mantido até a implementação da PIC-11, que introduzirá o upload de logo nativo e um asset embarcado definitivo.
 
 ## 3. Consequências
 
