@@ -86,7 +86,8 @@ O portal SEEDUC possui CAPTCHA, impossibilitando login automático. O diretor fa
 Extrai nomes, matrículas e turmas do relatório `RelAlunosMatPTurma` do SEEDUC.
 
 - **Comportamento atual**: Itera por **todos os semestres** disponíveis no dropdown, extrai turmas de cada semestre, e para cada turma extrai os alunos. Dados são persistidos no JSON DB.
-- **Ref**: [ADR-007](ADR/ADR-ALPHA-BASELINE.md#adr-007)
+- **Scraper Reativo (PIC-13)**: A lógica de paginação e extração utiliza `MutationObservers` cacheados (com debouncing para evitar 100% de CPU spike do Chromium), injeções de eventos no barramento `Sys.WebForms.PageRequestManager` do ASP.NET (para reagir perfeitamente à latência de rede no preenchimento de dropdowns), mitigações de Stale Data nos filtros em cascata e listeners nativos do Electron (`did-finish-load`) para tolerar as quebras completas de DOM (Full Postbacks) geradas pelo SSRS.
+- **Ref**: [ADR-007](ADR/ADR-ALPHA-BASELINE.md#adr-007), [PIC-13](ADR/PIC-13.md)
 
 ### 3.3 Módulo CdF (Captura de Fotos)
 
@@ -324,6 +325,7 @@ flowchart TD
 | Chave | Título | Status | ADR |
 |-------|--------|--------|-----|
 | PIC-1 | Versionamento, Branching e CI/CD | ✅ Aceito | [PIC-1.md](ADR/PIC-1.md) |
+| PIC-13| Refatorar Motor de Espera Reativa (Eventos) | ✅ Aceito | [PIC-13.md](ADR/PIC-13.md) |
 | PIC-2 | Configurações Multi-escola | ✅ Aceito | [PIC-2.md](ADR/PIC-2.md) |
 | PIC-28| Mitigação de XSS e Validação | ✅ Aceito | [PIC-28.md](ADR/PIC-28.md) |
 | PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito | [PIC-3.md](ADR/PIC-3.md) |
@@ -332,7 +334,6 @@ flowchart TD
 
 | Chave | Título | Status | Issue |
 |-------|--------|--------|-------|
-| PIC-13| Refatorar Motor de Espera Reativa (MutationObserver)| ✅ Planejado / Backlog | [#25](https://github.com/normaii/picasso/issues/25) |
 | PIC-33| Falha na automação ChatOps (/aprovado) | ✅ Aceito (Pendente de Dev) | [#33](https://github.com/normaii/picasso/issues/33) |
 | PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito (Pendente de Dev) | [#8](https://github.com/normaii/picasso/issues/8) |
 | PIC-5 | Update Checker Passivo | 🔮 To Refine | [#10](https://github.com/normaii/picasso/issues/10) |
@@ -350,6 +351,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-25 | PIC-13 Finalizado: ADR atualizado com a arquitetura completa de Reatividade e mitigação de Stale Data nos Dropdowns. Seção 3.2 atualizada. |
 | 2026-09-25 | PIC-3 V10: saveDb() Windows-safe (fallback copy+unlink), guard isArchiving na rota real `/api/pdf/gerar`, rmSync falha retorna success:false, ADR e Memory atualizados. |
 | 2026-09-25 | PIC-3: Adicionada seção 3.6 (Módulo de Arquivamento e Expurgo LGPD). ADR atualizado com decisões de confiabilidade (V6-V9) e backlog diferido. |
 | 2026-09-22 | PIC-13: Adicionada decisão técnica de Scraper Reativo ao Backlog e criação do plano de QA para Throttling de rede. |

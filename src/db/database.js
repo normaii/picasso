@@ -326,7 +326,7 @@ function criarLogScraping() {
 function atualizarLogScraping(id, { status, total_alunos, fotos_baixadas, erros, mensagem }) {
   const log = dbData.log_scraping.find(l => l.id === id);
   if (log) {
-    if (status === 'concluido' || status === 'erro') {
+    if (status === 'concluido' || status === 'erro' || status === 'cancelado') {
       log.fim = new Date().toISOString();
     }
     if (status !== undefined) log.status = status;
