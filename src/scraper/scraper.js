@@ -35,10 +35,11 @@ function log(msg) {
  * Executa uma ação (clique ou evento) e aguarda reativamente o ASP.NET terminar o postback.
  * Resolve a Race Condition amarrando o listener ANTES de despachar a ação.
  */
-async function waitAspNetReady(win, actionScript = '') {
+async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
   const cfg = getConfiguracoes();
-  const parsed = parseInt(cfg.timeoutScraping);
-  const timeoutMs = (Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
+  const raw = String(cfg.timeoutScraping || '').trim();
+  const parsed = Number(raw);
+  const timeoutMs = (raw !== '' && Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
   try {
     await win.webContents.executeJavaScript(`
@@ -86,6 +87,12 @@ async function waitAspNetReady(win, actionScript = '') {
             }
             const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
             if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
+            
+            // Nova checagem customizada
+            if (${readyCondition ? 'true' : 'false'}) {
+               const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
+               if (!conditionMet) return false;
+            }
             return true;
           } catch(e) { return false; }
         };
@@ -168,8 +175,8 @@ async function iniciarScraping(cookies) {
     await win.loadURL(reportUrl);
     log(`Página do relatório carregada: ${reportUrl}`);
     
-    // Aguarda o carregamento inicial de forma reativa
-    const initialReady = await waitAspNetReady(win);
+    // Aguarda o carregamento inicial de forma reativa e espera as opções do Regional
+    const initialReady = await waitAspNetReady(win, '', "return document.getElementById('rptViewer_ctl00_ctl03_ddValue') !== null && document.getElementById('rptViewer_ctl00_ctl03_ddValue').options.length > 0");
     if (!initialReady) throw new Error('Timeout carregando página inicial.');
 
     let scrapingState = 'SETUP_FILTERS';
@@ -400,17 +407,21 @@ async function iniciarScraping(cookies) {
         const iframeState = await win.webContents.executeJavaScript(`
           new Promise((resolve) => {
             const startTime = Date.now();
-            const cfg = typeof getConfiguracoes !== 'undefined' ? getConfiguracoes() : {};
-            const parsed = parseInt(cfg.timeoutScraping);
-            const tMs = (Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
+            const tMs = ${timeoutMs};
             
             let isDone = false;
-            let observer = null;
+            let mainObserver = null;
+            let iframeObserver = null;
             let timeoutTimer = null;
+            let loadHandler = null;
 
             const cleanup = () => {
-               if (observer) observer.disconnect();
+               if (mainObserver) mainObserver.disconnect();
+               if (iframeObserver) iframeObserver.disconnect();
                if (timeoutTimer) clearTimeout(timeoutTimer);
+               if (loadHandler) {
+                 document.body.removeEventListener('load', loadHandler, true);
+               }
             };
 
             const finish = (result) => {
@@ -458,6 +469,15 @@ async function iniciarScraping(cookies) {
                 let doc = null;
                 try { doc = iframe.contentDocument; } catch(e) { }
                 if (!doc || !doc.body) return; 
+
+                if (doc.body.getAttribute('data-scraped-turma') === '${currentTurma.val}') return;
+
+                if (!iframeObserver || iframeObserver.doc !== doc) {
+                   if (iframeObserver) iframeObserver.disconnect();
+                   iframeObserver = new MutationObserver(tryExtract);
+                   iframeObserver.doc = doc;
+                   iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
+                }
                 
                 try {
                   const subFrame = doc.getElementById('report');
@@ -471,6 +491,8 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) return; 
+                
+                doc.body.setAttribute('data-scraped-turma', '${currentTurma.val}');
                 
                 const alunos = [];
                 trs.forEach(tr => {
@@ -488,16 +510,15 @@ async function iniciarScraping(cookies) {
               }
             };
 
-            observer = new MutationObserver(() => {
-               tryExtract();
-            });
-            observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+            mainObserver = new MutationObserver(tryExtract);
+            mainObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-            document.body.addEventListener('load', (e) => {
+            loadHandler = (e) => {
                if (e.target && (e.target.tagName === 'IFRAME' || e.target.tagName === 'FRAME')) {
                   tryExtract();
                }
-            }, true);
+            };
+            document.body.addEventListener('load', loadHandler, true);
 
             tryExtract();
           })
@@ -515,13 +536,7 @@ async function iniciarScraping(cookies) {
           scrapingState = 'SCRAPE_TURMA';
           continue;
         } else if (iframeState.error) {
-          log(`⚠ Falha na espera do iframe para turma ${currentTurma.text}: ${iframeState.error}`);
-          atualizarLogScraping(logId, { 
-            status: 'extraindo_dados', 
-            mensagem: `Turma ${currentTurma.text} pulada (${iframeState.error}).` 
-          });
-          scrapingState = 'SCRAPE_TURMA';
-          continue;
+          throw new Error(`Falha na extração do iframe para turma ${currentTurma.text}: ${iframeState.error}`);
         } else {
           log(`✔ Extraídos ${iframeState.alunos.length} alunos da turma ${currentTurma.text} (iframe: ${iframeState.foundId})`);
           atualizarLogScraping(logId, { 
