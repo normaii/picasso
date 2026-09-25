@@ -728,7 +728,9 @@ async function iniciarScraping(cookies) {
                 // Se passou por todas as gates de carregamento, o relatório carregou!
                 reportSuccessfullyLoaded = true;
 
-                const trs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr'))).filter(tr => {
+                const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
+                const uniqueTrs = Array.from(new Set(rawTrs));
+                const trs = uniqueTrs.filter(tr => {
                   const tds = tr.querySelectorAll('td');
                   if (tds.length < 4) return false;
                   return /^\\d{10,}$/.test(tds[0].innerText.trim());
