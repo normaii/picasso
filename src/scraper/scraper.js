@@ -284,7 +284,10 @@ async function iniciarScraping(cookies) {
       return { error: 'cancelled' };
     };
 
-    const loadTimeoutPromise = new Promise(resolve => setTimeout(() => resolve({ error: 'timeout' }), initialTimeoutMs));
+    let loadTimerId;
+    const loadTimeoutPromise = new Promise(resolve => {
+       loadTimerId = setTimeout(() => resolve({ error: 'timeout' }), initialTimeoutMs);
+    });
 
     let loadState;
     try {
@@ -295,6 +298,7 @@ async function iniciarScraping(cookies) {
       ]);
     } finally {
       isLoadRaceDone = true;
+      clearTimeout(loadTimerId);
     }
 
     if (loadState.error === 'cancelled') {
