@@ -105,9 +105,11 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
 
         const hasAction = ${actionScript ? 'true' : 'false'};
         let sawBeginRequest = false;
+        let hasPRM = false;
 
         // Escuta eventos do ASP.NET
         if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+           hasPRM = true;
            prm = Sys.WebForms.PageRequestManager.getInstance();
            // Observa o início do postback para saber que a ação realmente disparou
            beginRequestHandler = () => { sawBeginRequest = true; };
@@ -118,8 +120,8 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
 
         // Escuta mutações no DOM (UpdateProgress)
         observer = new MutationObserver(() => {
-           // Se há ação, só pode resolver após observar o beginRequest
-           if (hasAction && !sawBeginRequest) return;
+           // Se há ação E temos PRM, só pode resolver após observar o beginRequest
+           if (hasAction && hasPRM && !sawBeginRequest) return;
            if (checkReady()) { finish(); }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true });
@@ -136,14 +138,20 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
           }
         }
 
-        // Se NÃO há ação (é só um wait de carregamento inicial), verifica se já está pronto no próximo tick
-        // Se há ação, NÃO resolve prematuramente — aguarda o beginRequest + endRequest
-        if (!hasAction) {
-          setTimeout(() => {
-             if (!isDone && checkReady()) {
+        // Fallback: se NÃO há ação OU se PRM não está disponível (full postback),
+        // poll periodicamente para verificar readiness ao invés de depender exclusivamente de eventos
+        if (!hasAction || !hasPRM) {
+          const fallbackPoll = setInterval(() => {
+             if (isDone) { clearInterval(fallbackPoll); return; }
+             if (checkReady()) {
+                clearInterval(fallbackPoll);
                 finish();
              }
-          }, 100);
+          }, 200);
+          // Garante limpeza do interval no cleanup
+          const origCleanup = cleanup;
+          // Não redefinimos cleanup, usamos o timeout para limpar
+          setTimeout(() => { clearInterval(fallbackPoll); }, ${timeoutMs});
         }
       })
     `);
@@ -582,9 +590,10 @@ async function iniciarScraping(cookies) {
                 } catch(e) { }
 
                 // Agora doc aponta para o documento final (nested ou outer)
-                // Checa a marcação no documento: se já foi scraped para ESTA turma, ignora
+                // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
+                const markerKey = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
-                if (scrapedVal === '${currentTurma.val}') return;
+                if (scrapedVal === markerKey) return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
@@ -597,7 +606,14 @@ async function iniciarScraping(cookies) {
                 if (doc.readyState !== 'complete') return;
 
                 const viewerLoadingState = getViewerLoadingState();
-                if (viewerLoadingState === true) return;
+                // Gating estrito: só aceita rows quando explicitamente false (não carregando)
+                // null = viewer não disponível ainda, true = carregando
+                if (viewerLoadingState !== false && viewerLoadingState !== null) return;
+                // Se viewer existe mas ainda está carregando, aguarda
+                if (viewerLoadingState === null) {
+                  // Viewer não disponível: verifica se há $find e se o viewer ainda não foi inicializado
+                  // Nesse caso, continua observando via MutationObserver
+                }
                 
                 // Sinal explícito do SSRS de carregamento: AsyncWait
                 const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
@@ -618,7 +634,8 @@ async function iniciarScraping(cookies) {
                    return;
                 }
                 
-                doc.body.setAttribute('data-scraped-turma', '${currentTurma.val}');
+                const markerKey2 = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
+                doc.body.setAttribute('data-scraped-turma', markerKey2);
                 
                 const alunos = [];
                 trs.forEach(tr => {
