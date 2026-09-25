@@ -97,15 +97,22 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
           } catch(e) { return false; }
         };
 
+        const hasAction = ${actionScript ? 'true' : 'false'};
+        let sawBeginRequest = false;
+
         // Escuta eventos do ASP.NET
         if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
            prm = Sys.WebForms.PageRequestManager.getInstance();
+           // Observa o início do postback para saber que a ação realmente disparou
+           prm.add_beginRequest(() => { sawBeginRequest = true; });
            endRequestHandler = () => { if (checkReady()) finish(); };
            prm.add_endRequest(endRequestHandler);
         }
 
         // Escuta mutações no DOM (UpdateProgress)
         observer = new MutationObserver(() => {
+           // Se há ação, só pode resolver após observar o beginRequest
+           if (hasAction && !sawBeginRequest) return;
            if (checkReady()) { finish(); }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true });
@@ -122,12 +129,15 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
           }
         }
 
-        // Se a ação não disparou um postback (ou se foi apenas um wait), tenta verificar se já está pronto no próximo tick
-        setTimeout(() => {
-           if (!isDone && checkReady()) {
-              finish();
-           }
-        }, 100);
+        // Se NÃO há ação (é só um wait de carregamento inicial), verifica se já está pronto no próximo tick
+        // Se há ação, NÃO resolve prematuramente — aguarda o beginRequest + endRequest
+        if (!hasAction) {
+          setTimeout(() => {
+             if (!isDone && checkReady()) {
+                finish();
+             }
+          }, 100);
+        }
       })
     `);
 
@@ -302,16 +312,16 @@ async function iniciarScraping(cookies) {
               const anoOpts = getOpts(anoId);
               
               const regCurrent = regOpts.find(o => o.val === getVal(regId));
-              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts) };
+              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts), nextId: munId };
               
               const munCurrent = munOpts.find(o => o.val === getVal(munId));
-              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts) };
+              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts), nextId: escId };
               
               const escCurrent = escOpts.find(o => o.val === getVal(escId));
-              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts) };
+              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId };
               
               const anoCurrent = anoOpts.find(o => o.val === getVal(anoId));
-              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts) };
+              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: null };
               
               return { action: 'done' };
             } catch (e) {
@@ -326,7 +336,10 @@ async function iniciarScraping(cookies) {
 
         if (setupState.action === 'select') {
           if (!setupState.opt) {
-            throw new Error(`Não foi possível achar opção válida para o filtro ${setupState.id} (DOM pronto, mas filtro vazio).`);
+            // Dropdown dependente pode estar vazio porque o anterior ainda não populou — aguarda ao invés de abortar
+            log(`Dropdown ${setupState.id} vazio, aguardando repopulação via postback...`);
+            await waitAspNetReady(win, '', `return (() => { const el = document.getElementById('${setupState.id}'); if (!el) return false; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
+            continue; // Re-avalia o SETUP_FILTERS com o dropdown agora populado
           }
           
           const label = FIELD_NAMES[setupState.id] || setupState.id;
@@ -334,11 +347,17 @@ async function iniciarScraping(cookies) {
           log(`${label}: ${setupState.opt.text} ✔`);
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${label}: ${setupState.opt.text} selecionado(a).` });
           
+          // Seleciona e dispara o change, depois aguarda que o PRÓXIMO dropdown dependente seja populado
+          const nextDropdownId = setupState.nextId || null;
+          const readyCond = nextDropdownId
+            ? `return (() => { const el = document.getElementById('${nextDropdownId}'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`
+            : null;
+          
           await waitAspNetReady(win, `
             const el = document.getElementById('${setupState.id}');
             el.value = '${setupState.opt.val}';
             el.dispatchEvent(new Event('change', { bubbles: true }));
-          `);
+          `, readyCond);
         } else if (setupState.action === 'done') {
           log('Filtros base preenchidos. Indo capturar semestres...');
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Filtros configurados. Mapeando semestres...' });
@@ -556,8 +575,9 @@ async function iniciarScraping(cookies) {
                 } catch(e) { }
 
                 // Agora doc aponta para o documento final (nested ou outer)
-                // Checa/Seta a marcação no documento real que contém a tabela
-                if (doc.body.hasAttribute('data-scraped-turma')) return;
+                // Checa a marcação no documento: se já foi scraped para ESTA turma, ignora
+                const scrapedVal = doc.body.getAttribute('data-scraped-turma');
+                if (scrapedVal === '${currentTurma.val}') return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
@@ -586,11 +606,8 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   // Se a div de relatório ou tabelas base não estão presentes, o SSRS ainda está gerando a estrutura
-                   const hasStructure = doc.querySelectorAll('table').length > 0 || doc.querySelector('div[id*="ReportArea"]') !== null;
-                   if (!hasStructure) return;
-                   
-                   finish({ error: 'table_not_found', html: doc.body.innerHTML.substring(0, 5000), foundId: foundId });
+                   // Continua observando — o SSRS pode ter criado a estrutura mas ainda não populou as linhas.
+                   // Somente o timeout encerra a espera se as linhas nunca aparecerem.
                    return;
                 }
                 
