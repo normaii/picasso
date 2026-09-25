@@ -169,15 +169,23 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
            const doCheckReady = async () => {
               if (readyCondition) {
                  return await win.webContents.executeJavaScript(`
-                    new Promise((res, rej) => {
-                       const poll = setInterval(() => {
-                          try {
-                            const met = new Function(${JSON.stringify(readyCondition)})();
-                            if (met) { clearInterval(poll); clearTimeout(failTimer); res(true); }
-                          } catch(e) {}
-                       }, 200);
-                       const failTimer = setTimeout(() => { clearInterval(poll); rej(new Error('Network Timeout (Ready Condition)')); }, ${timeoutMs});
-                    })
+                     new Promise((res, rej) => {
+                        let observer;
+                        const cleanup = () => {
+                           if (observer) observer.disconnect();
+                           clearTimeout(failTimer);
+                        };
+                        const check = () => {
+                           try {
+                              const met = new Function(${JSON.stringify(readyCondition)})();
+                              if (met) { cleanup(); res(true); }
+                           } catch(e) {}
+                        };
+                        observer = new MutationObserver(check);
+                        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+                        const failTimer = setTimeout(() => { cleanup(); rej(new Error('Network Timeout (Ready Condition)')); }, ${timeoutMs});
+                        check();
+                     })
                  `);
               }
               return true;
