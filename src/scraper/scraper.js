@@ -476,7 +476,7 @@ async function iniciarScraping(cookies) {
 
         await waitAspNetReady(win, `
           const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
-          el.value = '${currentSemestre.val}';
+          el.value = ${JSON.stringify(currentSemestre.val)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
         `);
         scrapingState = 'FETCH_TURMAS';
@@ -550,7 +550,7 @@ async function iniciarScraping(cookies) {
              });
           } catch(e) {}
 
-          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = '${currentTurma.val}';
+          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = ${JSON.stringify(currentTurma.val)};
           document.getElementById('rptViewer_ctl00_ctl00').click();
         `);
         
@@ -688,7 +688,7 @@ async function iniciarScraping(cookies) {
                 try { latestReportHtml = doc.documentElement.outerHTML; } catch(e) {}
                 
                 // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
-                const markerKey = '${currentSemestre ? currentSemestre.val + ":" : ""}${currentTurma.val}';
+                const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
                 if (scrapedVal === markerKey) return;
                 if (scrapedVal === 'INVALIDATING') return;
@@ -730,7 +730,7 @@ async function iniciarScraping(cookies) {
                    return; 
                 }
                 
-                const markerKey2 = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
+                const markerKey2 = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
                 doc.body.setAttribute('data-scraped-turma', markerKey2);
                 
                 const alunos = [];
@@ -739,7 +739,7 @@ async function iniciarScraping(cookies) {
                   const matricula = tds[0].innerText.trim();
                   const nome = tds[1].innerText.trim();
                   if (nome && matricula) {
-                    alunos.push({ nome, matricula, turma_nome: '${currentTurma.text}' });
+                    alunos.push({ nome, matricula, turma_nome: ${JSON.stringify(currentTurma.text)} });
                   }
                 });
                 
