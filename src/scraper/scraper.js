@@ -512,6 +512,7 @@ async function iniciarScraping(cookies) {
                 let doc = null;
                 try { doc = iframe.contentDocument; } catch(e) { }
                 if (!doc || !doc.body) return; 
+                const reportRootDoc = doc;
 
                 // SSRS pode ter um sub-frame "report" dentro do frameset principal
                 try {
@@ -550,7 +551,7 @@ async function iniciarScraping(cookies) {
                    const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
                    if (isVisible(waitPanel)) return;
 
-                   const outerWaitPanel = document.getElementById('AsyncWait_Wait') || document.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                   const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
                    if (isVisible(outerWaitPanel)) return;
                    
                    // Se a div de relatório ou tabelas base não estão presentes, o SSRS ainda está gerando a estrutura
