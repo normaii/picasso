@@ -186,11 +186,17 @@ router.post('/system/archive', (req, res) => {
     const photoTerminalStates = ['ocioso', 'concluido', 'erro', 'cancelado'];
     const isPhotosActive = photoStatus && !photoTerminalStates.includes(photoStatus.status);
     
-    if (isScrapingActive || isPhotosActive) {
-      return res.status(409).json({ erro: 'Não é possível arquivar enquanto há processos de sincronização ou download em andamento. Cancele-os primeiro.' });
+    const isPdfActive = typeof pdfStatus !== 'undefined' && pdfStatus.status === 'processando';
+
+    if (isScrapingActive || isPhotosActive || isPdfActive) {
+      return res.status(409).json({ erro: 'Não é possível arquivar enquanto há processos de sincronização, download ou geração de PDF em andamento. Aguarde a conclusão.' });
     }
 
     const result = archiveAndPurge();
+    if (!result.success) {
+      return res.status(500).json({ erro: result.erro || 'Falha ao concluir o encerramento do ciclo.' });
+    }
+    
     if (result.warnings && result.warnings.length > 0) {
       res.json({ 
         mensagem: 'Encerramento de ciclo letivo concluído com alertas.', 
@@ -454,6 +460,10 @@ let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null
  */
 router.post('/pdf/gerar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
+    }
+
     const { turma } = req.body;
     if (!turma) {
       return res.status(400).json({ erro: 'O nome da turma é obrigatório.' });

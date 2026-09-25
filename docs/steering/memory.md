@@ -121,12 +121,14 @@ Implementa o encerramento do ciclo letivo: soft-delete de banco e PDFs + hard-de
   2. Move os PDFs para `pdfs/archive_pdfs/` com timestamp.
   3. Renomeia `fotos/` para pasta temporária, grava marcador `.archive_committed`, e exclui fisicamente.
   4. Limpa o banco de dados em memória (alunos, logs, IDs) e persiste via gravação atômica.
-- **Gravação Atômica**: `saveDb()` grava em `picasso_db.json.tmp` e renomeia para `picasso_db.json`. Exceções propagam para abortar o expurgo.
-- **Concorrência**: Flag global `isArchiving` (try/finally) bloqueia scraping, download de fotos e geração de PDFs. Flag `isScrapingRunning` no `scraper.js` previne duplo scraping e estados zumbis.
+- **Gravação Atômica (Windows-safe)**: `saveDb()` grava em `picasso_db.json.tmp` e tenta `renameSync`. Se falhar (EPERM/EBUSY por antivírus ou indexer do Windows), usa fallback `copyFileSync` + `unlinkSync`. Exceções propagam para abortar o expurgo.
+- **Concorrência**: Flag global `isArchiving` (try/finally) bloqueia scraping, download de fotos e geração de PDFs (tanto `/api/gerar` quanto `/api/pdf/gerar`). Flag `isScrapingRunning` no `scraper.js` previne duplo scraping e estados zumbis.
+- **Hard-Delete de Fotos**: Se `rmSync` falhar ao excluir fisicamente as fotos, a operação retorna `success: false` com mensagem de erro clara para a UI, exigindo remoção manual pelo operador.
 - **Crash Recovery**: No boot (`initDatabase`), varredura **síncrona** de pastas `fotos_temp_delete_*`. Se a pasta tem marcador `.archive_committed` → lixo pós-commit (apagar). Se não tem marcador e `fotos/` sumiu → crash pré-commit (restaurar fotos).
 - **Autenticação**: Header `x-admin-key` com valor de `process.env.ADMIN_SECRET` (fallback hardcoded para Beta local).
 - **Acessibilidade**: Modal com `role="dialog"`, `aria-modal`, Focus Management e tecla ESC.
-- **Decisões Diferidas**: Autenticação robusta, coordenação de PDF (Fase 3), race condition assíncrono do PhotoFetcher → documentados no ADR como backlog futuro.
+- **Decisões Diferidas**: Autenticação robusta, race condition assíncrono do PhotoFetcher → documentados no ADR como backlog futuro.
+- **Risco Residual Aceito**: Micro-janela de crash (~1ms) entre `saveDb()` e gravação do `.archive_committed` — probabilidade infinitesimal, mitigação manual.
 - **Ref**: [PIC-3](ADR/PIC-3.md)
 
 ---
@@ -336,6 +338,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-25 | PIC-3 V10: saveDb() Windows-safe (fallback copy+unlink), guard isArchiving na rota real `/api/pdf/gerar`, rmSync falha retorna success:false, ADR e Memory atualizados. |
 | 2026-09-25 | PIC-3: Adicionada seção 3.6 (Módulo de Arquivamento e Expurgo LGPD). ADR atualizado com decisões de confiabilidade (V6-V9) e backlog diferido. |
 | 2026-09-22 | PIC-13: Adicionada decisão técnica de Scraper Reativo ao Backlog e criação do plano de QA para Throttling de rede. |
 | 2026-09-22 | PIC-28: Mitigação de XSS, Sanitização e Defense in Depth no Gerador de PDF. |

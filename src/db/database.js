@@ -32,10 +32,22 @@ function getDbPath() {
  */
 function saveDb() {
   if (!dbPath) return;
-  // Gravação atômica: grava em .tmp e renomeia para evitar corrupção em crash
+  // Gravação atômica: grava em .tmp e substitui o original
   const tempPath = `${dbPath}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(dbData, null, 2), 'utf-8');
-  fs.renameSync(tempPath, dbPath);
+  // Windows-safe: renameSync falha se o destino já existe (EPERM/EBUSY por
+  // antivírus, Windows Search indexer, etc.). Fallback: copy + unlink.
+  try {
+    fs.renameSync(tempPath, dbPath);
+  } catch (renameErr) {
+    try {
+      fs.copyFileSync(tempPath, dbPath);
+      fs.unlinkSync(tempPath);
+    } catch (copyErr) {
+      // Propaga o erro original para que chamadores saibam que a persistência falhou
+      throw renameErr;
+    }
+  }
 }
 
 /**
@@ -498,7 +510,13 @@ function archiveAndPurge() {
         fs.rmSync(fotosTempDir, { recursive: true, force: true });
       } catch (err) {
         console.error('[Archive] Erro ao deletar pasta temp de fotos:', err);
-        warnings.push(`As fotos foram desvinculadas, mas ocorreu uma falha ao remover fisicamente do disco a pasta '${path.basename(fotosTempDir)}'.`);
+        // Hard-delete de fotos é requisito LGPD — se falhou, não é sucesso total.
+        return {
+          success: false,
+          timestamp,
+          erro: `O banco e os PDFs foram arquivados com sucesso, porém a exclusão física das fotos falhou. A pasta '${path.basename(fotosTempDir)}' permanece no disco e deve ser removida manualmente. Motivo: ${err.message}`,
+          warnings
+        };
       }
     }
 
