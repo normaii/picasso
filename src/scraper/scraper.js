@@ -162,34 +162,52 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
       } catch (err) {
         if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated'))) {
            log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
-           return await new Promise((resolve, reject) => {
-              const timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
-              const onFinishLoad = async () => {
-                 clearTimeout(timeoutTimer);
-                 win.webContents.removeListener('did-finish-load', onFinishLoad);
-                 if (readyCondition) {
-                    try {
-                       await win.webContents.executeJavaScript(`
-                          new Promise(res => {
-                             const poll = setInterval(() => {
-                                try {
-                                  const met = new Function(${JSON.stringify(readyCondition)})();
-                                  if (met) { clearInterval(poll); res(true); }
-                                } catch(e) {}
-                             }, 200);
-                             setTimeout(() => { clearInterval(poll); res(true); }, ${timeoutMs});
-                          })
-                       `);
-                       resolve(true);
-                    } catch (e) { reject(e); }
-                 } else {
+           
+           let timeoutTimer;
+           let onFinishLoad;
+           
+           const doCheckReady = async () => {
+              if (readyCondition) {
+                 return await win.webContents.executeJavaScript(`
+                    new Promise((res, rej) => {
+                       const poll = setInterval(() => {
+                          try {
+                            const met = new Function(${JSON.stringify(readyCondition)})();
+                            if (met) { clearInterval(poll); clearTimeout(failTimer); res(true); }
+                          } catch(e) {}
+                       }, 200);
+                       const failTimer = setTimeout(() => { clearInterval(poll); rej(new Error('Network Timeout (Ready Condition)')); }, ${timeoutMs});
+                    })
+                 `);
+              }
+              return true;
+           };
+
+           const fallbackPromise = new Promise((resolve, reject) => {
+              timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
+              onFinishLoad = async () => {
+                 try {
+                    await doCheckReady();
                     resolve(true);
-                 }
+                 } catch (e) { reject(e); }
               };
-              win.webContents.on('did-finish-load', onFinishLoad);
+              
+              if (!win.webContents.isLoading()) {
+                 onFinishLoad();
+              } else {
+                 win.webContents.once('did-finish-load', onFinishLoad);
+              }
            });
+           
+           try {
+              result = await Promise.race([ fallbackPromise, cancelPoll() ]);
+           } finally {
+              clearTimeout(timeoutTimer);
+              if (onFinishLoad) win.webContents.removeListener('did-finish-load', onFinishLoad);
+           }
+        } else {
+           throw err; // Propaga os timeouts corretamente ao invés de ignorar!
         }
-        throw err; // Propaga os timeouts corretamente ao invés de ignorar!
       }
     } finally {
       isRaceDone = true;
@@ -642,9 +660,7 @@ async function iniciarScraping(cookies) {
                 if (doc.readyState !== 'complete') return;
 
                 const viewerLoadingState = getViewerLoadingState();
-                // Gating estrito: qualquer valor diferente de false (incluindo null = viewer não inicializado)
-                // significa que o SSRS ainda não confirmou conclusão → continua aguardando
-                if (viewerLoadingState !== false) return;
+                if (viewerLoadingState === true) return;
                 
                 // Sinal explícito do SSRS de carregamento: AsyncWait
                 const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
@@ -711,7 +727,7 @@ async function iniciarScraping(cookies) {
            isRaceDone = true;
         }
 
-        if (iframeState.error === 'table_not_found') {
+        if (iframeState.error === 'table_not_found' || iframeState.error === 'iframe_not_found_timeout') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
           log(`═══════════════════════════════════════`);
