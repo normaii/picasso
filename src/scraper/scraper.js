@@ -160,7 +160,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
       try {
         result = await Promise.race([ waitPromise, cancelPoll() ]);
       } catch (err) {
-        if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated'))) {
+        if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated') || err.message.includes('Script failed to execute') || err.message.includes('this world has been destroyed'))) {
            log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
            
            let timeoutTimer;
@@ -543,7 +543,7 @@ async function iniciarScraping(cookies) {
              document.querySelectorAll('iframe, frame').forEach(f => {
                 if (f.contentDocument && f.contentDocument.body) {
                    f.contentDocument.body.setAttribute('data-scraped-turma', 'INVALIDATING');
-                   f.contentDocument.body.innerHTML = ''; 
+                   // f.contentDocument.body.innerHTML = ''; // Removido: preserva iframe para evitar timeout do SSRS viewer 
                 }
              });
           } catch(e) {}
@@ -589,9 +589,9 @@ async function iniciarScraping(cookies) {
 
             timeoutTimer = setTimeout(() => {
                if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found' });
+                  finish({ error: 'table_not_found', html: document.documentElement.outerHTML });
                } else {
-                  finish({ error: 'iframe_not_found_timeout' });
+                  finish({ error: 'iframe_not_found_timeout', html: document.documentElement.outerHTML });
                }
             }, tMs);
 
@@ -654,6 +654,10 @@ async function iniciarScraping(cookies) {
                 try {
                   const subFrame = doc.getElementById('report');
                   if (subFrame) {
+                     if (!subFrame.hasAttribute('data-load-listener-attached')) {
+                        subFrame.setAttribute('data-load-listener-attached', 'true');
+                        subFrame.addEventListener('load', tryExtract);
+                     }
                      // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
                      if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
                      doc = subFrame.contentDocument;
@@ -662,9 +666,10 @@ async function iniciarScraping(cookies) {
 
                 // Agora doc aponta para o documento final (nested ou outer)
                 // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
-                const markerKey = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
+                const markerKey = `${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}`;
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
                 if (scrapedVal === markerKey) return;
+                if (scrapedVal === 'INVALIDATING') return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
@@ -696,8 +701,7 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   // Continua observando — o SSRS pode ter criado a estrutura mas ainda não populou as linhas.
-                   // Somente o timeout encerra a espera se as linhas nunca aparecerem.
+                   finish({ error: null, alunos: [] });
                    return;
                 }
                 
@@ -747,17 +751,10 @@ async function iniciarScraping(cookies) {
            isRaceDone = true;
         }
 
-        if (iframeState.error === 'table_not_found') {
+        if (iframeState.error === 'iframe_not_found_timeout') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
-          log(`═══════════════════════════════════════`);
-          log(`A tabela de alunos não foi encontrada na Turma ${currentTurma.text}! Pulando para a próxima...`);
-          log(`Iframe encontrado: ${iframeState.foundId}`);
-          log(`═══════════════════════════════════════`);
-          
-          atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Turma ${currentTurma.text} sem tabela de alunos. Pulando.` });
-          scrapingState = 'SCRAPE_TURMA';
-          continue;
+          throw new Error(`Falha na extração do iframe para turma ${currentTurma.text}: ${iframeState.error} (Network Timeout)`);
         } else if (iframeState.error === 'cancelled') {
           throw new Error('Sincronização cancelada pelo usuário.');
         } else if (iframeState.error) {
