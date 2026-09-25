@@ -273,10 +273,7 @@ async function iniciarScraping(cookies) {
     
     const reportUrl = `${BASE_URL}/ConexaoEducacao/Relatorio/PageViewer.aspx?report=RelAlunosMatPTurma&grp=GESTAO`;
     
-    const cfg = getConfiguracoes();
-    const rawTimeout = String(cfg.timeoutScraping || '').trim();
-    const parsedTimeout = Number(rawTimeout);
-    const initialTimeoutMs = (rawTimeout !== '' && Number.isInteger(parsedTimeout) && parsedTimeout > 0) ? parsedTimeout * 1000 : 60000;
+    const initialTimeoutMs = timeoutMs;
 
     let isLoadRaceDone = false;
     const cancelLoadPoll = async () => {
@@ -575,6 +572,8 @@ async function iniciarScraping(cookies) {
             let iframeObserver = null;
             let timeoutTimer = null;
             let loadHandler = null;
+            let subFrameRef = null;
+            let subFrameLoadHandler = null;
 
             const cleanup = () => {
                if (mainObserver) mainObserver.disconnect();
@@ -586,6 +585,9 @@ async function iniciarScraping(cookies) {
                }
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
+               }
+               if (subFrameRef && subFrameLoadHandler) {
+                 subFrameRef.removeEventListener('load', subFrameLoadHandler);
                }
             };
 
@@ -626,6 +628,13 @@ async function iniciarScraping(cookies) {
             };
 
             const tryExtract = () => {
+              if (isDone) return;
+              
+              if (window._emptyTimer) {
+                 clearTimeout(window._emptyTimer);
+                 window._emptyTimer = null;
+              }
+              
               try {
                 const possibleIds = [
                   'rptViewer_ReportFrame',
@@ -664,9 +673,10 @@ async function iniciarScraping(cookies) {
                 try {
                   const subFrame = doc.getElementById('report');
                   if (subFrame) {
-                     if (!subFrame.hasAttribute('data-load-listener-attached')) {
-                        subFrame.setAttribute('data-load-listener-attached', 'true');
-                        subFrame.addEventListener('load', tryExtract);
+                     if (subFrameRef !== subFrame) {
+                        subFrameRef = subFrame;
+                        subFrameLoadHandler = tryExtract;
+                        subFrame.addEventListener('load', subFrameLoadHandler);
                      }
                      // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
                      if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
@@ -713,18 +723,11 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
-                   if (!window._emptyTimer) {
-                      window._emptyTimer = setTimeout(() => {
-                         window._emptyTimer = null;
-                         finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
-                      }, 2000); // 2 segundos curtos de tolerância
-                   }
+                   window._emptyTimer = setTimeout(() => {
+                      window._emptyTimer = null;
+                      finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
+                   }, 2000); // 2 segundos curtos de tolerância, reiniciados a cada mutação
                    return; 
-                }
-                
-                if (window._emptyTimer) {
-                   clearTimeout(window._emptyTimer);
-                   window._emptyTimer = null;
                 }
                 
                 const markerKey2 = '${currentSemestre ? currentSemestre.val + ':' : ''}${currentTurma.val}';
