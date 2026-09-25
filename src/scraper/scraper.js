@@ -729,7 +729,7 @@ async function iniciarScraping(cookies) {
                 if (trs.length === 0) {
                    window._emptyTimer = setTimeout(() => {
                       window._emptyTimer = null;
-                      finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
+                      finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML, foundId });
                    }, 2000); // 2 segundos curtos de tolerância, reiniciados a cada mutação
                    return; 
                 }
