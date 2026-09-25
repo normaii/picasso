@@ -2,7 +2,7 @@
 
 ## 1. Contexto
 
-Durante a homologação da tarefa PIC-2 (Configurações Multi-escola), foi detectado o bug relatado na Issue #98: O campo "Logo da Escola (URL ou Base64)" do formulário de Configurações no front-end bloqueava o salvamento exibindo a mensagem "Preencha este campo" quando deixado em branco.
+Durante a homologação da tarefa PIC-2 (Configurações Multi-escola), foi detectado o bug relatado na Issue #98: O campo "Logo da Escola (URL web ou Data URI)" do formulário de Configurações no front-end bloqueava o salvamento exibindo a mensagem "Preencha este campo" quando deixado em branco.
 Isto ocorreu porque o `<input>` continha a tag `required` em seu código HTML. Como a funcionalidade de upload definitivo da logo (PIC-11) ainda será construída, as escolas podem não possuir logo no momento, devendo o sistema aceitar o registro em branco e aplicar uma imagem default.
 
 ## 2. Decisão
@@ -16,4 +16,4 @@ Para corrigir a vulnerabilidade de usabilidade:
 
 - **Melhoria UX:** Os usuários não ficarão travados caso apenas queiram alterar o nome da escola.
 - **Transparência:** Mantém a retrocompatibilidade com o banco de dados que suportava propriedades em branco na chave `configuracoes.escolaLogo`.
-- A implementação deste hotfix ocorrerá exclusivamente no front-end, eliminando riscos colaterais a outras funcionalidades do aplicativo.
+- **Confiabilidade da Geração:** O hotfix alterou tanto o front-end (remoção de restrição) quanto o back-end do gerador PDF (`src/generator/pdfGenerator.js`), garantindo que o serviço de fallback seja funcional (`placehold.co`), prevenindo gargalos de rede ou quebras de TLS na extração de PDFs sem logo.
