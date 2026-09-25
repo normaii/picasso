@@ -4,6 +4,66 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.8](https://github.com/normaii/picasso/compare/v0.1.0-dev.7...v0.1.0-dev.8) (2026-09-25)
+
+### ✨ Funcionalidades
+
+* **PIC-13:** implementa scraper reativo com MutationObserver e remove timeouts cegos ([47ef08b](https://github.com/normaii/picasso/commit/47ef08b0a56f22ad26ba67e8fd41655f3db3a8b2))
+
+### 🐛 Correções
+
+* **scraper:** add missing catch block to try and finally to race condition ([596cbea](https://github.com/normaii/picasso/commit/596cbeae68c852ae42959c1fed721347d054fd19))
+* **scraper:** add sawBeginRequest guard to endRequestHandler to prevent stale data reading ([2adbb2c](https://github.com/normaii/picasso/commit/2adbb2c3432ee23249b6f9b49cbde29b0cf89262))
+* **scraper:** clear initial load timer in Promise.race finally block to prevent memory leaks ([78198aa](https://github.com/normaii/picasso/commit/78198aa22307c423166dc095fc95d6f55e1c6fe3))
+* **scraper:** distinguish network timeout from empty report loaded timeout ([ee35a83](https://github.com/normaii/picasso/commit/ee35a839278463ccc1ba12985b8149827f93e15b))
+* **scraper:** eliminate stale-data risk in dependent dropdowns (clear elements before change) ([ff858ff](https://github.com/normaii/picasso/commit/ff858ff98e816f34ab1c185d4033c220b4cb2faf))
+* **scraper:** full postback load event + strict viewer gating ([6674b0c](https://github.com/normaii/picasso/commit/6674b0ca00a693af9dcd3314c0fea7c889652b50))
+* **scraper:** gate empty report classification on SSRS load state ([4ef010a](https://github.com/normaii/picasso/commit/4ef010a6bf1e90d5a687a6a18398efbf8645cfee))
+* **scraper:** ignore hidden outer SSRS wait panel ([d094242](https://github.com/normaii/picasso/commit/d094242ae7afc0cb47d829070c5e83db108c42b8))
+* **scraper:** remove beginRequest listener leak ([725130f](https://github.com/normaii/picasso/commit/725130f992e3db6e7592b764b7006789b551be4f))
+* **scraper:** replace setInterval with MutationObserver in fallback readiness check ([ae8e874](https://github.com/normaii/picasso/commit/ae8e8744b3cc398d3294f42953737a5ef2b5bf16))
+* **scraper:** resolve 3 Copilot PR68 medium findings ([a5be3a1](https://github.com/normaii/picasso/commit/a5be3a167837540078fba2c4c15340ea603e03e5))
+* **scraper:** resolve 4 Copilot PR66 findings ([fd44bb1](https://github.com/normaii/picasso/commit/fd44bb11df8d193779ffad62321cd2b8749b0158))
+* **scraper:** resolve apontamentos do Copilot Review ([59a13e3](https://github.com/normaii/picasso/commit/59a13e37dcc27a4d933b1d97b913bdb501484f2c))
+* **scraper:** resolve Copilot feedback - memory leak, iframe mutations and strict timeout validation ([4ccb05f](https://github.com/normaii/picasso/commit/4ccb05f1281b278ebdfcfaafd9ca051c5fa83c48))
+* **scraper:** resolve Copilot feedback - timeout handling, iframe mutation e atomicity ([46bf75c](https://github.com/normaii/picasso/commit/46bf75c526f36e9be34d071bfab5b00177161181))
+* **scraper:** resolve Copilot feedback - timeoutMs scope, stale document and endRequest gate ([20990ee](https://github.com/normaii/picasso/commit/20990ee5e28709e9b672c6ebc9e5dabe9341d254))
+* **scraper:** resolve Copilot feedback - wait for valid options instead of placeholder ([54dead3](https://github.com/normaii/picasso/commit/54dead3d6a5e3a9a9bc6a53e4796f6df1d90eac4))
+* **scraper:** resolve Copilot finding (add foundId to table_not_found) ([de39938](https://github.com/normaii/picasso/commit/de3993824bce5b508d902c0ec42720be1bd1b1af))
+* **scraper:** resolve Copilot finding (data-old-report to fix empty debounce race) ([6a23ef5](https://github.com/normaii/picasso/commit/6a23ef5bf40f3159564252c712f710ef06e584c8))
+* **scraper:** resolve Copilot finding for INVALIDATING ([13fe42b](https://github.com/normaii/picasso/commit/13fe42b054dc834fadb9504c49e81873499328aa))
+* **scraper:** resolve Copilot V10 findings - loadURL timeout and strict readiness gating ([248463b](https://github.com/normaii/picasso/commit/248463bc4ca8bfcace41bf7c332d8e47f81ef908))
+* **scraper:** resolve Copilot V9 - racing loops, empty states, logging ([e710ed0](https://github.com/normaii/picasso/commit/e710ed0579d5fd7ce0356689da8e8f2804246761))
+* **scraper:** resolve final 2 Copilot findings ([319256e](https://github.com/normaii/picasso/commit/319256e50f32fb76ef1ae90bea5ac87446f94f55))
+* **scraper:** resolve final 3 Copilot findings (nested invalidation, syntax, empty timeout) ([66314c9](https://github.com/normaii/picasso/commit/66314c9139aea4e43b554c51e1d328f1fb0d681d))
+* **scraper:** resolve final 5 Copilot findings ([dd1b4b1](https://github.com/normaii/picasso/commit/dd1b4b1a654ac3a215f4d944fad0113f6900e1d4))
+* **scraper:** resolve final Copilot finding ([2b37b5b](https://github.com/normaii/picasso/commit/2b37b5be609e9715fd65492c589625b7b211750b))
+* **scraper:** resolve final Copilot finding (add missing fallback logs and debounce DOM sync) ([451f524](https://github.com/normaii/picasso/commit/451f5242dccfc30a8183b235df57980c133d86bc))
+* **scraper:** resolve final Copilot finding (add observability to wait completion) ([e06c260](https://github.com/normaii/picasso/commit/e06c26098e4a39a18980d8673e5309f89df54b54))
+* **scraper:** resolve final Copilot finding (deduplicate extracted trs) ([3e509e5](https://github.com/normaii/picasso/commit/3e509e5baf4e6910075213545f904aba3209cc24))
+* **scraper:** resolve final Copilot finding (empty class skip and nested html snapshot) ([05da8f5](https://github.com/normaii/picasso/commit/05da8f51cbb76987a8be0b958bb2dd18cf1bf7c0))
+* **scraper:** resolve final Copilot finding (fallback logs and main debounce) ([0523b44](https://github.com/normaii/picasso/commit/0523b4494c9b60836acc9a2af8c5628ff8a3960c))
+* **scraper:** resolve final Copilot finding (hoist foundId for global timeout calls) ([3fa1ab8](https://github.com/normaii/picasso/commit/3fa1ab84e504ed82dee9341534df7c83afb61800))
+* **scraper:** resolve final Copilot finding (JSON.stringify injection escaping on base filters) ([c299f36](https://github.com/normaii/picasso/commit/c299f36352ae10c6b9746b6d2b4e47346372fdad))
+* **scraper:** resolve final Copilot findings ([4cd450b](https://github.com/normaii/picasso/commit/4cd450b1e712d3c4d1530f8d85549d8e318884ee))
+* **scraper:** resolve final Copilot findings ([cd4ffe4](https://github.com/normaii/picasso/commit/cd4ffe4d75f62121e63809cb06f8ee90676b07f6))
+* **scraper:** resolve final Copilot findings (cfg redecl, listener closure leak, timer debounce) ([9b48b26](https://github.com/normaii/picasso/commit/9b48b265aab482a06860f4279ae7533e5fc4d9f4))
+* **scraper:** resolve finding race condition, iframe reactivity e console ([758f957](https://github.com/normaii/picasso/commit/758f9575ac2b261ac1c4e1555dd6963be0c18481))
+* **scraper:** resolve PR 70 high findings (View Report routing and iframe invalidation) ([479d1f8](https://github.com/normaii/picasso/commit/479d1f864b038fb997b757cfbdeb7a0215206072))
+* **scraper:** resolve PR 72 medium findings (timeout, gating, navigation) ([00b339e](https://github.com/normaii/picasso/commit/00b339e27bc617167146aa014f3d7d1bec10e2a3))
+* **scraper:** scope SSRS wait lookup to report root doc ([e3ae57c](https://github.com/normaii/picasso/commit/e3ae57c1776f2dd447afbf215461143e75654e28))
+* **scraper:** treat transparent SSRS wait panel as active ([eb2608d](https://github.com/normaii/picasso/commit/eb2608d02e7ecb0c0da75951fd5e60b22080d053))
+
+### 📚 Documentação
+
+* **PIC-13:** atualiza ADR e steering memory com arquitetura final de scraper reativo ([26430be](https://github.com/normaii/picasso/commit/26430bebfc5962f3f95162871ad04515578f8f20))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.7](https://github.com/normaii/picasso/compare/v0.1.0-dev.6...v0.1.0-dev.7) (2026-09-25)
 
 ### ✨ Funcionalidades
