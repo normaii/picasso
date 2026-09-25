@@ -32,8 +32,7 @@ function resolveFotoDataUrl(fotoPath) {
       } catch (e) {}
     }
   }
-
-  return 'https://via.placeholder.com/150/e0e0e0/7f8c8d?text=Sem+Foto';
+  return 'https://placehold.co/150x150/e0e0e0/7f8c8d.png?text=Sem+Foto';
 }
 
 /**
@@ -64,7 +63,7 @@ function buildHtmlForStudents(alunos, escolaNome, logoUrl) {
       let cardStr = cardHtml;
       
       const fotoUrl = resolveFotoDataUrl(aluno.foto_path);
-      const logoFinal = logoUrl || 'https://via.placeholder.com/150/ffffff/2980b9?text=LOGO';
+      const logoFinal = logoUrl || 'https://placehold.co/150x150/ffffff/2980b9.png?text=LOGO';
       const ano = new Date().getFullYear();
       
       const dataStr = new Date().toLocaleDateString('pt-BR');
