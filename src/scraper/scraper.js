@@ -423,7 +423,7 @@ async function iniciarScraping(cookies) {
           
           await waitAspNetReady(win, `
             const el = document.getElementById('${setupState.id}');
-            el.value = '${setupState.opt.val}';
+            el.value = ${JSON.stringify(setupState.opt.val)};
             el.dispatchEvent(new Event('change', { bubbles: true }));
           `, readyCond);
         } else if (setupState.action === 'done') {
