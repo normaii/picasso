@@ -174,6 +174,18 @@ Todo commit deve seguir o formato: `<type>(<scope>): <description>`
 
 O desenvolvedor/agente é responsável por atualizar o status da tarefa no GitHub Projects conforme progride no ciclo de vida (ver seção 6).
 
+### 4.5 Fluxo de Code Review Autônomo (Copilot / Agentes IA)
+
+Quando o agente submete uma Pull Request, um fluxo de revisão de código estático (ex: Copilot Code Review) é acionado. O agente **deve, de forma autônoma e sem limite pré-definido de iterações**, executar o seguinte loop de triagem até a resolução:
+
+1. **Aguardar a Revisão**: Monitorar ativamente o fim do Code Review da CI (ex: usando timers ou checando `gh run list`).
+2. **Análise Crítica**: Ao término, extrair e avaliar os achados/comentários da PR recém-aberta.
+3. **Triagem e Ação**:
+   - **Correção mandatória**: Se apontar falhas reais (bugs lógicos, segurança, tratamento de erro), o agente deve **fechar a PR atual**, codar a correção, commitar, e abrir uma nova PR de versão incrementada (ex: `V2`, `V3`).
+   - **Overengineering / Escopo futuro**: Se a revisão sugerir arquiteturas complexas incompatíveis com o escopo atual (desktop/local) ou fora da tarefa, o agente não deve codar. Ele deve documentar formalmente na ADR vigente (seção de Riscos Aceitos ou Decisões Diferidas) ou gerar uma Issue/tarefa de backlog.
+4. **Resumo Automático**: Refazer o ciclo recursivamente até a revisão não acusar problemas severos/médios válidos. Quando limpa, **reescrever o Body da PR final** consolidando o histórico da feature (e não apenas o diff da última iteração).
+5. **Handoff**: Apenas devolver o controle ao Humano quando o loop de aprovação da máquina estiver 100% verde ou com resíduos explicitamente catalogados como *Won't fix*.
+
 ---
 
 ## 5. Branching Model e Versionamento
