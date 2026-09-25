@@ -42,7 +42,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
   const timeoutMs = (raw !== '' && Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
   try {
-    await win.webContents.executeJavaScript(`
+    const waitPromise = win.webContents.executeJavaScript(`
       new Promise((resolve, reject) => {
         const startTime = Date.now();
         console.log('[Scraper-DOM] Preparando ação atômica e aguardando postback...');
@@ -130,6 +130,20 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         }, 100);
       })
     `);
+
+    let isRaceDone = false;
+    const cancelPoll = async () => {
+      while (!isCancelled() && !isRaceDone) { await delay(500); }
+      return { cancelled: true };
+    };
+
+    const result = await Promise.race([ waitPromise, cancelPoll() ]);
+    isRaceDone = true;
+    
+    if (result && result.cancelled) {
+      throw new Error('Sincronização cancelada pelo usuário.');
+    }
+    
     return true;
   } catch (err) {
     throw err; // Propaga os timeouts corretamente ao invés de ignorar!
@@ -409,7 +423,7 @@ async function iniciarScraping(cookies) {
       else if (scrapingState === 'WAIT_IFRAME_REPORT') {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Aguardando carregamento do relatório para turma ${currentTurma.text}...` });
         
-        const iframeState = await win.webContents.executeJavaScript(`
+        const iframePromise = win.webContents.executeJavaScript(`
           new Promise((resolve) => {
             const startTime = Date.now();
             const tMs = ${timeoutMs};
@@ -475,6 +489,18 @@ async function iniciarScraping(cookies) {
                 try { doc = iframe.contentDocument; } catch(e) { }
                 if (!doc || !doc.body) return; 
 
+                // SSRS pode ter um sub-frame "report" dentro do frameset principal
+                try {
+                  const subFrame = doc.getElementById('report');
+                  if (subFrame) {
+                     // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
+                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
+                     doc = subFrame.contentDocument;
+                  }
+                } catch(e) { }
+
+                // Agora doc aponta para o documento final (nested ou outer)
+                // Checa/Seta a marcação no documento real que contém a tabela
                 if (doc.body.hasAttribute('data-scraped-turma')) return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
@@ -483,11 +509,6 @@ async function iniciarScraping(cookies) {
                    iframeObserver.doc = doc;
                    iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                 }
-                
-                try {
-                  const subFrame = doc.getElementById('report');
-                  if (subFrame && subFrame.contentDocument) doc = subFrame.contentDocument;
-                } catch(e) { }
 
                 const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
                   const tds = tr.querySelectorAll('td');
@@ -495,7 +516,16 @@ async function iniciarScraping(cookies) {
                   return /^\\d{10,}$/.test(tds[0].innerText.trim());
                 });
                 
-                if (trs.length === 0) return; 
+                if (trs.length === 0) {
+                   const bodyText = doc.body.innerText || '';
+                   // Se tem menos de 50 caracteres, provavelmente a tabela de conteúdo
+                   // do relatório ainda está sendo desenhada/renderizada. Ignora e aguarda.
+                   if (bodyText.length < 50) return;
+                   
+                   // Se tem bastante texto mas não achou TRs com matrícula, a tabela está vazia ou falhou.
+                   finish({ error: 'table_not_found', html: doc.body.innerHTML.substring(0, 5000), foundId: foundId });
+                   return;
+                }
                 
                 doc.body.setAttribute('data-scraped-turma', '${currentTurma.val}');
                 
@@ -528,6 +558,15 @@ async function iniciarScraping(cookies) {
             tryExtract();
           })
         `);
+
+        let isRaceDone = false;
+        const cancelPoll = async () => {
+          while (!isCancelled() && !isRaceDone) { await delay(500); }
+          return { error: 'cancelled' };
+        };
+
+        const iframeState = await Promise.race([ iframePromise, cancelPoll() ]);
+        isRaceDone = true;
 
         if (iframeState.error === 'table_not_found') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
@@ -573,12 +612,17 @@ async function iniciarScraping(cookies) {
     }
 
   } catch (error) {
-    console.error('[Scraper] Erro catastrófico durante o scraping:', error);
-    if (logId) {
-      atualizarLogScraping(logId, { 
-        status: 'erro', 
-        mensagem: error.message 
-      });
+    if (error.message === 'Sincronização cancelada pelo usuário.') {
+      log('⛔ Cancelamento solicitado pelo usuário durante espera ativa.');
+      if (logId) atualizarLogScraping(logId, { status: 'cancelado', mensagem: error.message });
+    } else {
+      console.error('[Scraper] Erro catastrófico durante o scraping:', error);
+      if (logId) {
+        atualizarLogScraping(logId, { 
+          status: 'erro', 
+          mensagem: error.message 
+        });
+      }
     }
   } finally {
     isScrapingRunning = false;
