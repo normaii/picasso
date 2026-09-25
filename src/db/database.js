@@ -113,7 +113,8 @@ function initDatabase() {
       }
     });
   } catch(e) {
-    console.error('[Archive Cleanup] Erro ao varrer diretório de dados:', e.message);
+    console.error('[Archive Cleanup] Erro fatal ao varrer diretório de dados para recuperação:', e.message);
+    throw e; // Impede o boot com estado incerto
   }
 }
 
@@ -467,6 +468,12 @@ function archiveAndPurge() {
       dbData._nextAlunoId = 1;
       dbData._nextLogId = 1;
       saveDb();
+
+      // 5. Marcar a transação como COMMITTED antes da exclusão física
+      if (fotosRenamed && fs.existsSync(fotosTempDir)) {
+        // Se isso falhar, o catch reverte o DB para o snapshot, restabelece as fotos e PDFs.
+        fs.writeFileSync(path.join(fotosTempDir, '.archive_committed'), timestamp, 'utf-8');
+      }
       
     } catch (error) {
       // === ROLLBACK COMPLETO ===
@@ -498,23 +505,6 @@ function archiveAndPurge() {
     }
 
     const warnings = [];
-
-    // 5. Marcar a transação como COMMITTED antes da exclusão física
-    // Isso permite que o boot recovery saiba que o expurgo foi bem-sucedido
-    // e não tente restaurar as fotos em caso de crash durante a deleção.
-    if (fotosRenamed && fs.existsSync(fotosTempDir)) {
-      try {
-        fs.writeFileSync(path.join(fotosTempDir, '.archive_committed'), timestamp, 'utf-8');
-      } catch(e) {
-        console.error('[Archive] Falha fatal: Não foi possível gravar marcador de commit:', e.message);
-        return {
-          success: false,
-          timestamp,
-          erro: `Falha ao gravar marcador de segurança. A exclusão física foi abortada para evitar corrupção. A pasta '${path.basename(fotosTempDir)}' permanece no disco. Remova-a manualmente.`,
-          warnings
-        };
-      }
-    }
 
     // 6. Exclusão permanente física síncrona de todas as pastas temporárias (Crash-safe e Retry-safe)
     let hardDeleteFailed = false;
