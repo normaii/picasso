@@ -138,20 +138,30 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
           }
         }
 
-        // Fallback: se NÃO há ação OU se PRM não está disponível (full postback),
-        // poll periodicamente para verificar readiness ao invés de depender exclusivamente de eventos
-        if (!hasAction || !hasPRM) {
-          const fallbackPoll = setInterval(() => {
-             if (isDone) { clearInterval(fallbackPoll); return; }
-             if (checkReady()) {
-                clearInterval(fallbackPoll);
-                finish();
-             }
-          }, 200);
-          // Garante limpeza do interval no cleanup
-          const origCleanup = cleanup;
-          // Não redefinimos cleanup, usamos o timeout para limpar
-          setTimeout(() => { clearInterval(fallbackPoll); }, ${timeoutMs});
+        // Fallback: se NÃO há ação, verifica readiness imediatamente no próximo tick
+        // Se há ação MAS PRM não está disponível (full postback), precisa aguardar
+        // o carregamento completo da página via evento de navegação
+        if (!hasAction) {
+          setTimeout(() => {
+             if (!isDone && checkReady()) { finish(); }
+          }, 100);
+        } else if (hasAction && !hasPRM) {
+          // Full postback: sem PRM, a página vai recarregar completamente.
+          // Escutamos o evento 'load' do window como sinal de que o novo documento carregou
+          const onPageLoad = () => {
+            window.removeEventListener('load', onPageLoad);
+            // Após o load, poll até checkReady ser true (ex: dropdowns repopulados)
+            const postLoadPoll = setInterval(() => {
+               if (isDone) { clearInterval(postLoadPoll); return; }
+               if (checkReady()) {
+                  clearInterval(postLoadPoll);
+                  finish();
+               }
+            }, 200);
+            setTimeout(() => { clearInterval(postLoadPoll); }, ${timeoutMs});
+          };
+          window.addEventListener('load', onPageLoad);
+          // Segurança: se o load não disparar, o timeout global vai resolver
         }
       })
     `);
@@ -606,14 +616,9 @@ async function iniciarScraping(cookies) {
                 if (doc.readyState !== 'complete') return;
 
                 const viewerLoadingState = getViewerLoadingState();
-                // Gating estrito: só aceita rows quando explicitamente false (não carregando)
-                // null = viewer não disponível ainda, true = carregando
-                if (viewerLoadingState !== false && viewerLoadingState !== null) return;
-                // Se viewer existe mas ainda está carregando, aguarda
-                if (viewerLoadingState === null) {
-                  // Viewer não disponível: verifica se há $find e se o viewer ainda não foi inicializado
-                  // Nesse caso, continua observando via MutationObserver
-                }
+                // Gating estrito: qualquer valor diferente de false (incluindo null = viewer não inicializado)
+                // significa que o SSRS ainda não confirmou conclusão → continua aguardando
+                if (viewerLoadingState !== false) return;
                 
                 // Sinal explícito do SSRS de carregamento: AsyncWait
                 const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
