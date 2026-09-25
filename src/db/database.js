@@ -92,6 +92,7 @@ function initDatabase() {
             console.log(`[Archive Cleanup] Lixo pós-commit removido: ${item}`);
           } catch(e) {
             console.error(`[Archive Cleanup] Falha ao remover ${item}:`, e.message);
+            throw e;
           }
         } else if (!fotosExist) {
           // Crash PRÉ-COMMIT: A pasta oficial sumiu e a transação não terminou. Restaurar.
@@ -100,6 +101,7 @@ function initDatabase() {
             console.warn(`[Archive] RECUPERAÇÃO DE EMERGÊNCIA: Fotos restauradas a partir de ${item}`);
           } catch(e) {
             console.error('[Archive] Falha ao tentar recuperar fotos da pasta zumbi:', e);
+            throw e;
           }
         } else {
           // Pasta oficial existe E não há marcador de commit: lixo ambíguo, apagar com segurança.
@@ -108,6 +110,7 @@ function initDatabase() {
             console.log(`[Archive Cleanup] Lixo zumbi removido: ${item}`);
           } catch(e) {
             console.error(`[Archive Cleanup] Falha ao remover ${item}:`, e.message);
+            throw e;
           }
         }
       }

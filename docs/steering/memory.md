@@ -127,7 +127,7 @@ Implementa o encerramento do ciclo letivo: soft-delete de banco e PDFs + hard-de
 - **Crash Recovery**: No boot (`initDatabase`), varredura **síncrona** de pastas `fotos_temp_delete_*`. Se a pasta tem marcador `.archive_committed` → lixo pós-commit (apagar). Se não tem marcador e `fotos/` sumiu → crash pré-commit (restaurar fotos).
 - **Autenticação**: Header `x-admin-key` com valor de `process.env.ADMIN_SECRET` (fallback hardcoded para Beta local).
 - **Acessibilidade**: Modal com `role="dialog"`, `aria-modal`, Focus Management e tecla ESC.
-- **Decisões Diferidas**: Autenticação robusta, race condition assíncrono do PhotoFetcher → documentados no ADR como backlog futuro.
+- **Decisões Diferidas**: Autenticação robusta (sem chave em plain-text no front-end), rollback metadata em moves de PDF e `copyFileSync` in-place fallback — documentados no ADR como backlog futuro/overengineering aceito.
 - **Risco Residual Aceito**: Micro-janela de crash (~1ms) entre `saveDb()` e gravação do `.archive_committed` — probabilidade infinitesimal, mitigação manual.
 - **Ref**: [PIC-3](ADR/PIC-3.md)
 

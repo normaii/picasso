@@ -20,6 +20,7 @@ Após múltiplas rodadas de revisão estática (Copilot Code Review), as seguint
 - **Gravação Atômica do JSON (Windows-safe):** `saveDb()` grava num `.tmp` e tenta `renameSync`. Se falhar (comum no Windows por locks de antivírus/indexer), usa `copyFileSync` + `unlinkSync` como fallback. Erro de IO **propaga exceção** para abortar o expurgo.
 - **Mutex Global (`isArchiving`):** Flag `try/finally` que bloqueia scraping, download de fotos e geração de PDFs durante o expurgo.
 - **Mutex do Scraper (`isScrapingRunning`):** Flag in-memory no `scraper.js` com `try/finally`, evitando estados zumbis do JSON persistido.
+- **Trava Síncrona de Download de Fotos:** O lock de download (status `em_andamento`) é ativado sincronamente na primeira instrução da rotina, eliminando o gap do event-loop causado pelo await dos cookies.
 - **Marcador de Fase Transacional (`.archive_committed`):** Arquivo sentinela gravado dentro da pasta temporária de fotos *após* o commit do banco (limpeza do JSON). Permite ao boot recovery distinguir entre crash pré-commit (restaurar fotos) e crash pós-commit (apagar lixo).
 - **Boot Recovery Síncrono:** A varredura de pastas zumbis no `initDatabase()` é síncrona, executada antes do Express aceitar requisições.
 - **Rollback com proteção individual:** Cada operação de `renameSync` de rollback é isolada em `try/catch` para não abortar em cascata.
@@ -35,8 +36,9 @@ Após múltiplas rodadas de revisão estática (Copilot Code Review), as seguint
 Os seguintes pontos foram identificados durante o Code Review mas **deliberadamente adiados** por se tratarem de otimizações de segurança avançada incompatíveis com o escopo Beta local (1 escola, 1 servidor, Electron desktop):
 
 1. **Autenticação robusta (sem fallback hardcoded):** O front-end Electron envia uma chave estática. Para produção SaaS, será necessário um mecanismo de sessão/token dinâmico. → *Issue futura quando o sistema virar produto multi-tenant.*
-2. **Race condition assíncrono de download de fotos:** Existe uma micro-janela teórica entre o `check` de `isArchiving` na rota e o momento em que o photoFetcher muda seu status para `em_andamento`. Mitigação: o app é single-user local, mas em SaaS isso precisará de um semáforo async real.
-3. **ADMIN_SECRET obrigatório sem fallback:** Em produção, o `.env` deveria ser obrigatório e o servidor deveria recusar iniciar sem ele. Para Beta local, o fallback hardcoded é aceitável pois o Electron roda na mesma máquina.
+2. **ADMIN_SECRET obrigatório sem fallback:** Em produção, o `.env` deveria ser obrigatório e o servidor deveria recusar iniciar sem ele. Para Beta local, o fallback hardcoded é aceitável pois o Electron roda na mesma máquina.
+3. **Metadados de crash no rollback de PDFs:** O `renameSync` de PDFs falhar no meio do caminho não possui metadados em disco para rollback. Isso foi assumido como overengineering extremo, pois a probabilidade é ínfima e a mitigação é simples (gerar novos PDFs).
+4. **Substituição in-place durante fallback do Banco:** `copyFileSync` do banco em cima do existente no fallback do Windows-lock. Aceito como overengineering para uma aplicação de baixa concorrência como esta.
 
 ## Consequências
 - **Positivas:** Permite que a escola tenha backups das turmas passadas e dos PDFs, garantindo rastreabilidade, enquanto remove permanentemente as fotos para adequação à LGPD. Sistema resiliente a falhas de energia e crashes do SO.
