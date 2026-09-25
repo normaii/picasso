@@ -460,6 +460,7 @@ function archiveAndPurge() {
       }
 
       // 4. Limpar Banco de Dados mantendo configurações globais
+      const dbDataSnapshot = JSON.stringify(dbData);
       dbData.alunos = [];
       dbData.log_scraping = [];
       dbData._nextAlunoId = 1;
@@ -468,12 +469,17 @@ function archiveAndPurge() {
       
     } catch (error) {
       // === ROLLBACK COMPLETO ===
-      // 1. Reverter JSON
+      // 1. Reverter JSON em memória e no disco
+      try {
+        if (typeof dbDataSnapshot !== 'undefined') {
+          dbData = JSON.parse(dbDataSnapshot);
+        }
+      } catch (e) { console.error('Falha crítica ao restaurar snapshot em memória do DB', e); }
+
       if (fs.existsSync(archivedDbPath)) {
         try {
           fs.copyFileSync(archivedDbPath, currentDbPath);
-          dbData = JSON.parse(fs.readFileSync(currentDbPath, 'utf-8'));
-        } catch (e) { console.error('Falha crítica no rollback do DB', e); }
+        } catch (e) { console.error('Falha crítica no rollback físico do DB', e); }
       }
       // 2. Reverter fotos
       if (fotosRenamed && fs.existsSync(fotosTempDir)) {
