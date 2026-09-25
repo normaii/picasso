@@ -465,7 +465,7 @@ async function iniciarScraping(cookies) {
                 ? el.ownerDocument.defaultView.getComputedStyle(el)
                 : null;
               if (!style) return true;
-              return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+              return style.display !== 'none' && style.visibility !== 'hidden';
             };
 
             const getViewerLoadingState = () => {
