@@ -49,13 +49,19 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
 
         let isDone = false;
         let endRequestHandler = null;
+        let beginRequestHandler = null;
         let prm = null;
         let observer = null;
 
         const cleanup = () => {
           if (observer) observer.disconnect();
-          if (prm && endRequestHandler) {
-            try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
+          if (prm) {
+            if (beginRequestHandler) {
+              try { prm.remove_beginRequest(beginRequestHandler); } catch(e) {}
+            }
+            if (endRequestHandler) {
+              try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
+            }
           }
         };
 
@@ -104,7 +110,8 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
            prm = Sys.WebForms.PageRequestManager.getInstance();
            // Observa o início do postback para saber que a ação realmente disparou
-           prm.add_beginRequest(() => { sawBeginRequest = true; });
+           beginRequestHandler = () => { sawBeginRequest = true; };
+           prm.add_beginRequest(beginRequestHandler);
            endRequestHandler = () => { if (checkReady()) finish(); };
            prm.add_endRequest(endRequestHandler);
         }
