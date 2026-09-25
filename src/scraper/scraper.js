@@ -564,6 +564,7 @@ async function iniciarScraping(cookies) {
             const tMs = ${timeoutMs};
             
             let isDone = false;
+            let reportSuccessfullyLoaded = false;
             let mainObserver = null;
             let iframeObserver = null;
             let timeoutTimer = null;
@@ -587,7 +588,11 @@ async function iniciarScraping(cookies) {
             };
 
             timeoutTimer = setTimeout(() => {
-               finish({ error: 'iframe_not_found_timeout' });
+               if (reportSuccessfullyLoaded) {
+                  finish({ error: 'table_not_found' });
+               } else {
+                  finish({ error: 'iframe_not_found_timeout' });
+               }
             }, tMs);
 
             const isVisible = (el) => {
@@ -681,6 +686,9 @@ async function iniciarScraping(cookies) {
                 const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
                 if (isVisible(outerWaitPanel)) return;
 
+                // Se passou por todas as gates de carregamento, o relatório carregou!
+                reportSuccessfullyLoaded = true;
+
                 const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
                   const tds = tr.querySelectorAll('td');
                   if (tds.length < 4) return false;
@@ -739,7 +747,7 @@ async function iniciarScraping(cookies) {
            isRaceDone = true;
         }
 
-        if (iframeState.error === 'table_not_found' || iframeState.error === 'iframe_not_found_timeout') {
+        if (iframeState.error === 'table_not_found') {
           const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
           fs.writeFileSync(debugPath, iframeState.html || '', 'utf-8');
           log(`═══════════════════════════════════════`);
