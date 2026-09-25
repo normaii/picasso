@@ -100,7 +100,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         // Escuta eventos do ASP.NET
         if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
            prm = Sys.WebForms.PageRequestManager.getInstance();
-           endRequestHandler = () => { finish(); };
+           endRequestHandler = () => { if (checkReady()) finish(); };
            prm.add_endRequest(endRequestHandler);
         }
 
@@ -145,6 +145,11 @@ async function iniciarScraping(cookies) {
   cancelRequested = false;
   let logId = null;
   let win = null;
+
+  const cfg = getConfiguracoes();
+  const raw = String(cfg.timeoutScraping || '').trim();
+  const parsed = Number(raw);
+  const timeoutMs = (raw !== '' && Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
   try {
     logId = criarLogScraping();
@@ -470,7 +475,7 @@ async function iniciarScraping(cookies) {
                 try { doc = iframe.contentDocument; } catch(e) { }
                 if (!doc || !doc.body) return; 
 
-                if (doc.body.getAttribute('data-scraped-turma') === '${currentTurma.val}') return;
+                if (doc.body.hasAttribute('data-scraped-turma')) return;
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
