@@ -36,80 +36,85 @@ function log(msg) {
  */
 async function waitAspNetReady(win) {
   const cfg = getConfiguracoes();
-  const timeoutMs = cfg.timeoutScraping ? parseInt(cfg.timeoutScraping) * 1000 : 60000;
+  const parsed = parseInt(cfg.timeoutScraping);
+  const timeoutMs = (!isNaN(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
   try {
     await win.webContents.executeJavaScript(`
       new Promise((resolve, reject) => {
         const startTime = Date.now();
-        console.log('[Scraper-DOM] Aguardando DOM/Rede ficar ocioso...');
         
-        const checkReady = () => {
-          try {
-            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-              if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) {
+        // Evita race condition: aguarda 50ms para que __doPostBack seja registrado na engine JS após o dispatchEvent
+        setTimeout(() => {
+          console.log('[Scraper-DOM] Aguardando DOM/Rede ficar ocioso...');
+          
+          const checkReady = () => {
+            try {
+              if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+                if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) {
+                  return false;
+                }
+              }
+              const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
+              if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') {
                 return false;
               }
+              return true;
+            } catch(e) { return false; }
+          };
+
+          let isDone = false;
+          let observer = null;
+          let endRequestHandler = null;
+          let prm = null;
+
+          const cleanup = () => {
+            if (observer) observer.disconnect();
+            if (prm && endRequestHandler) {
+              try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
             }
-            const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
-            if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') {
-              return false;
+          };
+
+          if (checkReady()) {
+            console.log('[Scraper-DOM] Rede já está ociosa (0ms)');
+            return resolve(true);
+          }
+
+          const timeoutTimer = setTimeout(() => {
+            if (!isDone) {
+              isDone = true;
+              cleanup();
+              console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
+              reject(new Error('Network Timeout'));
             }
-            return true;
-          } catch(e) { return false; } // Error checking means not ready or DOM changing
-        };
+          }, ${timeoutMs});
 
-        let isDone = false;
-        let observer = null;
-        let endRequestHandler = null;
-        let prm = null;
+          const finish = () => {
+            if (!isDone) {
+              isDone = true;
+              cleanup();
+              clearTimeout(timeoutTimer);
+              const duration = Date.now() - startTime;
+              console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
+              resolve(true);
+            }
+          };
 
-        const cleanup = () => {
-          if (observer) observer.disconnect();
-          if (prm && endRequestHandler) {
-            try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
+          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+             prm = Sys.WebForms.PageRequestManager.getInstance();
+             endRequestHandler = () => {
+                finish();
+             };
+             prm.add_endRequest(endRequestHandler);
           }
-        };
 
-        if (checkReady()) {
-          console.log('[Scraper-DOM] Rede já está ociosa (0ms)');
-          return resolve(true);
-        }
-
-        const timeoutTimer = setTimeout(() => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
-            reject(new Error('Network Timeout'));
-          }
-        }, ${timeoutMs});
-
-        const finish = () => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            clearTimeout(timeoutTimer);
-            const duration = Date.now() - startTime;
-            console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
-            resolve(true);
-          }
-        };
-
-        if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-           prm = Sys.WebForms.PageRequestManager.getInstance();
-           endRequestHandler = () => {
-              finish();
-           };
-           prm.add_endRequest(endRequestHandler);
-        }
-
-        observer = new MutationObserver(() => {
-           if (checkReady()) {
-              finish();
-           }
-        });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+          observer = new MutationObserver(() => {
+             if (checkReady()) {
+                finish();
+             }
+          });
+          observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+        }, 50);
       })
     `);
     return true;
@@ -143,9 +148,12 @@ async function iniciarScraping(cookies) {
       }
     });
 
-    win.webContents.on('console-message', (event, level, message) => {
-      if (message.startsWith('[Scraper-DOM]')) {
-        log(message);
+    win.webContents.on('console-message', (event, levelOrDetails, messageText) => {
+      const msg = typeof levelOrDetails === 'object' && levelOrDetails.message 
+        ? levelOrDetails.message 
+        : (messageText || '');
+      if (typeof msg === 'string' && msg.startsWith('[Scraper-DOM]')) {
+        log(msg);
       }
     });
 
@@ -399,114 +407,109 @@ async function iniciarScraping(cookies) {
         scrapingState = 'WAIT_IFRAME_REPORT';
       }
 
-      // ==================================================
-      // ESTADO: WAIT_IFRAME_REPORT
-      // ==================================================
       else if (scrapingState === 'WAIT_IFRAME_REPORT') {
-
-        // Proteção contra loop infinito
-        if (iframeRetries >= MAX_IFRAME_RETRIES) {
-          log(`⚠ Iframe não encontrado após ${MAX_IFRAME_RETRIES} tentativas para turma ${currentTurma.text}. Pulando...`);
-          atualizarLogScraping(logId, { 
-            status: 'extraindo_dados', 
-            mensagem: `Turma ${currentTurma.text} pulada (iframe não carregou).` 
-          });
-          
-          // Salva debug
-          try {
-            const pageHtml = await win.webContents.executeJavaScript(`document.body.innerHTML`);
-            const debugPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_report_iframe.html');
-            fs.writeFileSync(debugPath, pageHtml, 'utf-8');
-            log(`HTML de debug salvo em: ${debugPath}`);
-          } catch(e) { /* ignora */ }
-
-          scrapingState = 'SCRAPE_TURMA'; // pula para a próxima turma
-          continue;
-        }
-
+        atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Aguardando carregamento do relatório para turma ${currentTurma.text}...` });
+        
         const iframeState = await win.webContents.executeJavaScript(`
-          (() => {
-            try {
-              // Descoberta automática: tenta vários IDs comuns do SSRS ReportViewer
-              const possibleIds = [
-                'rptViewer_ReportFrame',
-                'ReportFramerptViewer',
-                'rptViewer_ctl00_ReportFrame'
-              ];
-              
-              let iframe = null;
-              let foundId = '';
-              
-              // Tenta IDs conhecidos
-              for (const id of possibleIds) {
-                const el = document.getElementById(id);
-                if (el) { iframe = el; foundId = id; break; }
-              }
-              
-              // Fallback: busca qualquer iframe/frame que aponte para o SSRS
-              if (!iframe) {
-                const allIframes = document.querySelectorAll('iframe, frame');
-                for (const f of allIframes) {
-                  const src = f.src || f.getAttribute('src') || '';
-                  if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
-                    iframe = f;
-                    foundId = f.id || '(sem id)';
-                    break;
+          new Promise((resolve) => {
+            const startTime = Date.now();
+            // Utiliza o timeout global ou 60s
+            const cfg = typeof getConfiguracoes !== 'undefined' ? getConfiguracoes() : {};
+            const parsed = parseInt(cfg.timeoutScraping);
+            const tMs = (!isNaN(parsed) && parsed > 0) ? parsed * 1000 : 60000;
+            
+            let interval = null;
+
+            const check = () => {
+              try {
+                const possibleIds = [
+                  'rptViewer_ReportFrame',
+                  'ReportFramerptViewer',
+                  'rptViewer_ctl00_ReportFrame'
+                ];
+                
+                let iframe = null;
+                let foundId = '';
+                
+                for (const id of possibleIds) {
+                  const el = document.getElementById(id);
+                  if (el) { iframe = el; foundId = id; break; }
+                }
+                
+                if (!iframe) {
+                  const allIframes = document.querySelectorAll('iframe, frame');
+                  for (const f of allIframes) {
+                    const src = f.src || f.getAttribute('src') || '';
+                    if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
+                      iframe = f;
+                      foundId = f.id || '(sem id)';
+                      break;
+                    }
                   }
                 }
-              }
-              
-              // Se ainda não achou, lista todos para debug
-              if (!iframe) {
-                const iframeInfo = Array.from(document.querySelectorAll('iframe, frame')).map(f => ({
-                  tag: f.tagName, id: f.id, name: f.name, src: (f.src || '').substring(0, 100)
-                }));
-                return { error: 'iframe_not_found', debug: JSON.stringify(iframeInfo) };
-              }
-              
-              let doc = null;
-              try { doc = iframe.contentDocument; } catch(e) { return { error: 'iframe_cross_origin' }; }
-              if (!doc || !doc.body) return { error: 'iframe_no_document' };
-              
-              // SSRS pode ter um sub-frame "report" dentro do frameset
-              try {
-                const subFrame = doc.getElementById('report');
-                if (subFrame && subFrame.contentDocument) {
-                  doc = subFrame.contentDocument;
+                
+                if (!iframe) {
+                  if (Date.now() - startTime > tMs) {
+                    clearInterval(interval);
+                    return resolve({ error: 'iframe_not_found_timeout' });
+                  }
+                  return; // Continua tentando
                 }
-              } catch(e) { /* ignora se cross-origin */ }
+                
+                let doc = null;
+                try { doc = iframe.contentDocument; } catch(e) { /* ignora */ }
+                if (!doc || !doc.body) {
+                  if (Date.now() - startTime > tMs) {
+                    clearInterval(interval);
+                    return resolve({ error: 'iframe_no_document_timeout' });
+                  }
+                  return;
+                }
+                
+                try {
+                  const subFrame = doc.getElementById('report');
+                  if (subFrame && subFrame.contentDocument) {
+                    doc = subFrame.contentDocument;
+                  }
+                } catch(e) { }
 
-              // Busca TRs cuja 1ª coluna seja matrícula (10+ dígitos)
-              const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
-                const tds = tr.querySelectorAll('td');
-                if (tds.length < 4) return false;
-                const txt = tds[0].innerText.trim();
-                return /^\\d{10,}$/.test(txt);
-              });
-              
-              if (trs.length === 0) {
-                // Pode ser que o relatório ainda esteja carregando
-                const bodyText = doc.body.innerText || '';
-                if (bodyText.length < 50) {
-                  return { error: 'iframe_loading', foundId: foundId };
+                const trs = Array.from(doc.querySelectorAll('table tr')).filter(tr => {
+                  const tds = tr.querySelectorAll('td');
+                  if (tds.length < 4) return false;
+                  const txt = tds[0].innerText.trim();
+                  return /^\\d{10,}$/.test(txt);
+                });
+                
+                if (trs.length === 0) {
+                  if (Date.now() - startTime > tMs) {
+                    clearInterval(interval);
+                    return resolve({ error: 'table_not_found', html: doc.body.innerHTML.substring(0, 5000), foundId: foundId });
+                  }
+                  return; // Continua tentando
                 }
-                return { error: 'table_not_found', html: doc.body.innerHTML.substring(0, 5000), foundId: foundId };
+                
+                const alunos = [];
+                trs.forEach(tr => {
+                  const tds = tr.querySelectorAll('td');
+                  const matricula = tds[0].innerText.trim();
+                  const nome = tds[1].innerText.trim();
+                  if (nome && matricula) {
+                    alunos.push({ nome, matricula, turma_nome: '${currentTurma.text}' });
+                  }
+                });
+                
+                clearInterval(interval);
+                resolve({ error: null, alunos, foundId: foundId });
+              } catch (e) {
+                if (Date.now() - startTime > tMs) {
+                  clearInterval(interval);
+                  resolve({ error: 'js_exception', message: e.message });
+                }
               }
-              
-              const alunos = [];
-              trs.forEach(tr => {
-                const tds = tr.querySelectorAll('td');
-                const matricula = tds[0].innerText.trim();
-                const nome = tds[1].innerText.trim();
-                if (nome && matricula) {
-                  alunos.push({ nome, matricula, turma_nome: '${currentTurma.text}' });
-                }
-              });
-              return { error: null, alunos, foundId: foundId };
-            } catch (e) {
-              return { error: 'js_exception', message: e.message };
-            }
-          })();
+            };
+
+            interval = setInterval(check, 500);
+          })
         `);
 
         if (iframeState.error === 'table_not_found') {
@@ -521,17 +524,13 @@ async function iniciarScraping(cookies) {
           scrapingState = 'SCRAPE_TURMA';
           continue;
         } else if (iframeState.error) {
-          iframeRetries++;
-          if (iframeRetries <= 3 || iframeRetries % 5 === 0) {
-            log(`Aguardando iframe... (tentativa ${iframeRetries}/${MAX_IFRAME_RETRIES}) [${iframeState.error}]`);
-            if (iframeState.debug) log(`Iframes encontrados na página: ${iframeState.debug}`);
-          }
+          log(`⚠ Falha na espera do iframe para turma ${currentTurma.text}: ${iframeState.error}`);
           atualizarLogScraping(logId, { 
             status: 'extraindo_dados', 
-            mensagem: `Aguardando carregamento do relatório (${iframeRetries}/${MAX_IFRAME_RETRIES})...` 
+            mensagem: `Turma ${currentTurma.text} pulada (${iframeState.error}).` 
           });
-          await delay(3000);
-          // Permanece no mesmo estado
+          scrapingState = 'SCRAPE_TURMA';
+          continue;
         } else {
           log(`✔ Extraídos ${iframeState.alunos.length} alunos da turma ${currentTurma.text} (iframe: ${iframeState.foundId})`);
           atualizarLogScraping(logId, { 
@@ -539,9 +538,7 @@ async function iniciarScraping(cookies) {
             mensagem: `Turma ${currentTurma.text}: ${iframeState.alunos.length} alunos extraídos ✔` 
           });
           allAlunos.push(...iframeState.alunos);
-          iframeRetries = 0;
           
-          // Volta pra próxima turma
           scrapingState = 'SCRAPE_TURMA';
         }
       }
