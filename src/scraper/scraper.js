@@ -579,6 +579,7 @@ async function iniciarScraping(cookies) {
             let loadHandler = null;
             let subFrameRef = null;
             let subFrameLoadHandler = null;
+            let lastFoundId = null;
 
             const cleanup = () => {
                if (mainObserver) mainObserver.disconnect();
@@ -606,9 +607,9 @@ async function iniciarScraping(cookies) {
 
             timeoutTimer = setTimeout(() => {
                if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML });
+                  finish({ error: 'table_not_found', html: latestReportHtml || document.documentElement.outerHTML, foundId: lastFoundId });
                } else {
-                  finish({ error: 'iframe_not_found_timeout', html: latestReportHtml || document.documentElement.outerHTML });
+                  finish({ error: 'iframe_not_found_timeout', html: latestReportHtml || document.documentElement.outerHTML, foundId: lastFoundId });
                }
             }, tMs);
 
@@ -666,6 +667,8 @@ async function iniciarScraping(cookies) {
                     }
                   }
                 }
+                
+                if (foundId) lastFoundId = foundId;
                 
                 if (!iframe) return; 
                 
