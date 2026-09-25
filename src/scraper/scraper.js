@@ -4,7 +4,7 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { criarLogScraping, atualizarLogScraping, upsertAlunosBatch } = require('../db/database');
+const { criarLogScraping, atualizarLogScraping, upsertAlunosBatch, getConfiguracoes } = require('../db/database');
 
 const BASE_URL = process.env.SYSTEM_URL || 'https://conexao.educacao.rj.gov.br';
 
@@ -32,26 +32,82 @@ function log(msg) {
 }
 
 /**
- * Aguarda o ASP.NET terminar o UpdatePanel async postback.
+ * Aguarda reativamente o ASP.NET terminar postbacks e a rede ociosa.
  */
 async function waitAspNetReady(win) {
-  let retries = 0;
-  while (retries < 20) {
-    const isReady = await win.webContents.executeJavaScript(`
-      (() => {
-        try {
-          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-            return !Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack();
+  const cfg = getConfiguracoes();
+  const timeoutMs = parseInt(cfg.timeoutScraping) || 60000;
+
+  try {
+    await win.webContents.executeJavaScript(`
+      new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        console.log('[Scraper-DOM] Aguardando DOM/Rede ficar ocioso...');
+        
+        const checkReady = () => {
+          try {
+            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+              if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) {
+                return false;
+              }
+            }
+            const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
+            if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') {
+              return false;
+            }
+            return true;
+          } catch(e) { return true; }
+        };
+
+        if (checkReady()) {
+          console.log('[Scraper-DOM] Rede já está ociosa (0ms)');
+          return resolve(true);
+        }
+
+        let isDone = false;
+        const timeoutTimer = setTimeout(() => {
+          if (!isDone) {
+            isDone = true;
+            console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
+            reject(new Error('Network Timeout'));
           }
-          return true;
-        } catch(e) { return true; }
-      })();
+        }, ${timeoutMs});
+
+        const finish = () => {
+          if (!isDone) {
+            isDone = true;
+            clearTimeout(timeoutTimer);
+            const duration = Date.now() - startTime;
+            console.log('[Scraper-DOM] Operação assíncrona concluída em ' + duration + 'ms');
+            resolve(true);
+          }
+        };
+
+        if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+           const prm = Sys.WebForms.PageRequestManager.getInstance();
+           const endRequestHandler = () => {
+              prm.remove_endRequest(endRequestHandler);
+              finish();
+           };
+           prm.add_endRequest(endRequestHandler);
+        }
+
+        const observer = new MutationObserver(() => {
+           if (checkReady()) {
+              observer.disconnect();
+              finish();
+           }
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      })
     `);
-    if (isReady) return true;
-    await delay(1000);
-    retries++;
+    return true;
+  } catch (err) {
+    if (err.message.includes('Network Timeout')) {
+      return false;
+    }
+    throw err;
   }
-  return false;
 }
 
 let isScrapingRunning = false;
@@ -76,6 +132,12 @@ async function iniciarScraping(cookies) {
       }
     });
 
+    win.webContents.on('console-message', (event, level, message) => {
+      if (message.startsWith('[Scraper-DOM]')) {
+        log(message);
+      }
+    });
+
     // defaultSession compartilha os cookies do login (ADR-015/019)
 
     atualizarLogScraping(logId, { status: 'navegando_relatorio', mensagem: 'Acessando relatório de alunos...' });
@@ -84,7 +146,9 @@ async function iniciarScraping(cookies) {
     await win.loadURL(reportUrl);
     log(`Página do relatório carregada: ${reportUrl}`);
     
-    await delay(5000); 
+    // Aguarda o carregamento inicial de forma reativa
+    const initialReady = await waitAspNetReady(win);
+    if (!initialReady) throw new Error('Timeout carregando página inicial.');
 
     let scrapingState = 'SETUP_FILTERS';
     
@@ -94,7 +158,6 @@ async function iniciarScraping(cookies) {
     let currentTurma = null;
     let allAlunos = [];
     
-    let stateRetries = 0;
     let iframeRetries = 0;
     const MAX_IFRAME_RETRIES = 15;
 
@@ -188,12 +251,8 @@ async function iniciarScraping(cookies) {
 
         if (setupState.action === 'select') {
           if (!setupState.opt) {
-            stateRetries++;
-            if (stateRetries > 5) throw new Error(`Não foi possível achar opção válida para o filtro ${setupState.id}.`);
-            await delay(1500);
-            continue;
+            throw new Error(`Não foi possível achar opção válida para o filtro ${setupState.id} (DOM pronto, mas filtro vazio).`);
           }
-          stateRetries = 0;
           
           const label = FIELD_NAMES[setupState.id] || setupState.id;
           log(`Selecionando ${label}...`);
@@ -207,7 +266,6 @@ async function iniciarScraping(cookies) {
               el.dispatchEvent(new Event('change', { bubbles: true }));
             })();
           `);
-          await delay(1000);
         } else if (setupState.action === 'done') {
           log('Filtros base preenchidos. Indo capturar semestres...');
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: 'Filtros configurados. Mapeando semestres...' });
@@ -263,7 +321,6 @@ async function iniciarScraping(cookies) {
             el.dispatchEvent(new Event('change', { bubbles: true }));
           })();
         `);
-        await delay(1000);
         scrapingState = 'FETCH_TURMAS';
       }
 
