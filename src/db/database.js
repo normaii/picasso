@@ -412,6 +412,15 @@ function salvarConfiguracoes(novasConfiguracoes) {
 let isArchiving = false;
 function getIsArchiving() { return isArchiving; }
 
+function formatLocalTimestamp(date) {
+  const pad = (value, length = 2) => String(value).padStart(length, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const offset = `${offsetMinutes < 0 ? '-' : '+'}${pad(Math.floor(absoluteOffset / 60))}${pad(absoluteOffset % 60)}`;
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}${offset}`;
+}
+
 function archiveAndPurge() {
   if (isArchiving) throw new Error('O arquivamento já está em andamento.');
   isArchiving = true;
@@ -419,7 +428,7 @@ function archiveAndPurge() {
   let dbDataSnapshot;
   try {
     const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = formatLocalTimestamp(new Date());
     
     // 1. Soft-Delete DB
     const archiveDbDir = path.join(dataDir, 'archive_db');
