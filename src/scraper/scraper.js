@@ -87,7 +87,7 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
         clearTimeout(timerId);
         return { success: true };
       }
-      await delay(500);
+      await delay(1000);
     }
     return { error: 'cancelled' };
   })();
@@ -198,7 +198,7 @@ async function iniciarScraping(cookies) {
 
     let isLoadRaceDone = false;
     const cancelLoadPoll = async () => {
-      while (!isCancelled() && !isLoadRaceDone) { await delay(500); }
+      while (!isCancelled() && !isLoadRaceDone) { await delay(1000); }
       return { error: 'cancelled' };
     };
 
@@ -781,7 +781,7 @@ async function iniciarScraping(cookies) {
 
         let isRaceDone = false;
         const cancelPoll = async () => {
-          while (!isCancelled() && !isRaceDone) { await delay(500); }
+          while (!isCancelled() && !isRaceDone) { await delay(1000); }
           return { error: 'cancelled' };
         };
 
