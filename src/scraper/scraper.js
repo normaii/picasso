@@ -420,39 +420,18 @@ async function iniciarScraping(cookies) {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Analisando Semestre: ${currentSemestre.text}` });
 
         await waitAspNetReady(win, `
-          window._ssrsLoadingStarted = false;
-          window._ssrsLoadingFinished = false;
-          
-          const observer = new MutationObserver(() => {
-             const waitEl = document.getElementById('AsyncWait_Wait') || document.querySelector('div[id*="AsyncWait"]');
-             if (waitEl && waitEl.style.display !== 'none') {
-                window._ssrsLoadingStarted = true;
-             } else if (window._ssrsLoadingStarted) {
-                window._ssrsLoadingFinished = true;
-             }
-          });
-          observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'display'] });
-          
           const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
           if (nextEl) { nextEl.innerHTML = ''; }
 
           const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
           el.value = ${JSON.stringify(currentSemestre.val)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
-          
-          // Se for tão rápido que não der trigger no observer, também checa a API interna do SSRS
-          const checkInternalApi = setInterval(() => {
-             if (typeof $find !== 'function') return;
-             const viewer = $find('rptViewer');
-             if (viewer && typeof viewer.get_isLoading === 'function') {
-                if (viewer.get_isLoading()) window._ssrsLoadingStarted = true;
-                else if (window._ssrsLoadingStarted) window._ssrsLoadingFinished = true;
-             }
-          }, 50);
-          
-          // Cleanup pra evitar vazamento de observer
-          setTimeout(() => { observer.disconnect(); clearInterval(checkInternalApi); }, 10000);
-        `, `return window._ssrsLoadingFinished;`);
+        `, `
+          return (() => { 
+             const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+             return nextEl && nextEl.options.length > 0;
+          })();
+        `);
         scrapingState = 'FETCH_TURMAS';
       }
 
