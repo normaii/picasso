@@ -41,204 +41,64 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
   const parsed = Number(raw);
   const timeoutMs = (raw !== '' && Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
-  try {
-    const waitPromise = win.webContents.executeJavaScript(`
-      new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        console.log('[Scraper-DOM] Preparando ação atômica e aguardando postback...');
-
-        let isDone = false;
-        let endRequestHandler = null;
-        let beginRequestHandler = null;
-        let prm = null;
-        let observer = null;
-
-        const cleanup = () => {
-          if (observer) observer.disconnect();
-          if (prm) {
-            if (beginRequestHandler) {
-              try { prm.remove_beginRequest(beginRequestHandler); } catch(e) {}
-            }
-            if (endRequestHandler) {
-              try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
-            }
-          }
-        };
-
-        const timeoutTimer = setTimeout(() => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
-            reject(new Error('Network Timeout'));
-          }
-        }, ${timeoutMs});
-
-        const finish = (msg) => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            clearTimeout(timeoutTimer);
-            const duration = Date.now() - startTime;
-            console.log('[Scraper-DOM] Operação assíncrona concluída [' + (msg || 'Ready') + '] em ' + duration + 'ms');
-            resolve(true);
-          }
-        };
-
-        // Verifica se o DOM já está limpo
-        const checkReady = () => {
-          try {
-            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-              if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) return false;
-            }
-            const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
-            if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
-            
-            // Nova checagem customizada
-            if (${readyCondition ? 'true' : 'false'}) {
-               const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
-               if (!conditionMet) return false;
-               return 'Custom ReadyCondition Met';
-            }
-            return 'Default ASP.NET Ready';
-          } catch(e) { return false; }
-        };
-
-        const hasAction = ${actionScript ? 'true' : 'false'};
-        let sawBeginRequest = false;
-        let hasPRM = false;
-
-        // Escuta eventos do ASP.NET
-        if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-           hasPRM = true;
-           prm = Sys.WebForms.PageRequestManager.getInstance();
-           // Observa o início do postback para saber que a ação realmente disparou
-           beginRequestHandler = () => { sawBeginRequest = true; };
-           prm.add_beginRequest(beginRequestHandler);
-           endRequestHandler = () => { 
-              if (hasAction && hasPRM && !sawBeginRequest) return;
-              const msg = checkReady();
-              if (msg) finish(msg); 
-           };
-           prm.add_endRequest(endRequestHandler);
-        }
-
-        // Escuta mutações no DOM (UpdateProgress)
-        observer = new MutationObserver(() => {
-           // Se há ação E temos PRM, só pode resolver após observar o beginRequest
-           if (hasAction && hasPRM && !sawBeginRequest) return;
-           const msg = checkReady();
-           if (msg) { finish(msg); }
-        });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-        // Executa a ação injetada
-        try {
-          ${actionScript || '/* Apenas aguarda carregamento inicial */'}
-        } catch(e) {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            clearTimeout(timeoutTimer);
-            reject(new Error('Erro na ação injetada: ' + e.message));
-          }
-        }
-
-        // Fallback: se NÃO há ação, verifica readiness imediatamente no próximo tick
-        if (!hasAction) {
-          setTimeout(() => {
-             if (!isDone) {
-                const msg = checkReady();
-                if (msg) { finish(msg); }
-             }
-          }, 100);
-        }
-        // Se há ação que cause postback parcial, os listeners do PageRequestManager cuidam.
-        // Se a ação causar full postback, o contexto será destruído e trataremos no Node.js.
-      })
-    `);
-
-    let isRaceDone = false;
-    const cancelPoll = async () => {
-      while (!isCancelled() && !isRaceDone) { await delay(500); }
-      return { cancelled: true };
-    };
-
-    let result;
-    try {
+  if (actionScript) {
+    await win.webContents.executeJavaScript(`
       try {
-        result = await Promise.race([ waitPromise, cancelPoll() ]);
-      } catch (err) {
-        if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated') || err.message.includes('Script failed to execute') || err.message.includes('this world has been destroyed'))) {
-           log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
-           
-           let timeoutTimer;
-           let onFinishLoad;
-           
-           const doCheckReady = async () => {
-              if (readyCondition) {
-                 return await win.webContents.executeJavaScript(`
-                     new Promise((res, rej) => {
-                        let observer;
-                        const cleanup = () => {
-                           if (observer) observer.disconnect();
-                           clearTimeout(failTimer);
-                        };
-                        const check = () => {
-                           try {
-                              const met = new Function(${JSON.stringify(readyCondition)})();
-                              if (met) { cleanup(); res(true); }
-                           } catch(e) {}
-                        };
-                        observer = new MutationObserver(check);
-                        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-                        const failTimer = setTimeout(() => { cleanup(); rej(new Error('Network Timeout (Ready Condition)')); }, ${timeoutMs});
-                        check();
-                     })
-                 `);
-              }
-              return true;
-           };
-
-           const fallbackPromise = new Promise((resolve, reject) => {
-              timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
-              onFinishLoad = async () => {
-                 try {
-                    await doCheckReady();
-                    log('[Scraper-DOM] Operação assíncrona concluída [' + (readyCondition ? 'Custom ReadyCondition Met' : 'Default ASP.NET Ready') + '] após Full Postback');
-                    resolve(true);
-                 } catch (e) { reject(e); }
-              };
-              
-              if (!win.webContents.isLoading()) {
-                 onFinishLoad();
-              } else {
-                 win.webContents.once('did-finish-load', onFinishLoad);
-              }
-           });
-           
-           try {
-              result = await Promise.race([ fallbackPromise, cancelPoll() ]);
-           } finally {
-              clearTimeout(timeoutTimer);
-              if (onFinishLoad) win.webContents.removeListener('did-finish-load', onFinishLoad);
-           }
-        } else {
-           throw err; // Propaga os timeouts corretamente ao invés de ignorar!
-        }
+        ${actionScript}
+      } catch(e) {
+        console.error('[Scraper-DOM] Erro no actionScript:', e);
       }
-    } finally {
-      isRaceDone = true;
-    }
-    
-    if (result && result.cancelled) {
-      throw new Error('Sincronização cancelada pelo usuário.');
-    }
-    
-    return true;
-  } catch (err) {
-    throw err;
+    `);
   }
+
+  const checkState = async () => {
+    return await win.webContents.executeJavaScript(`
+      (() => {
+        try {
+          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+            if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) return false;
+          }
+          const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
+          if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
+
+          if (${readyCondition ? 'true' : 'false'}) {
+            const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
+            if (!conditionMet) return false;
+          }
+          return true;
+        } catch(e) { return false; }
+      })()
+    `);
+  };
+
+  let timerId = null;
+  const timeoutPromise = new Promise(resolve => {
+    timerId = setTimeout(() => {
+      resolve({ error: 'timeout' });
+    }, timeoutMs);
+  });
+
+  const pollPromise = (async () => {
+    let isRaceDone = false;
+    while (!isCancelled() && !isRaceDone) {
+      if (win.isDestroyed()) return { error: 'destroyed' };
+      if (await checkState()) {
+        isRaceDone = true;
+        clearTimeout(timerId);
+        return { success: true };
+      }
+      await delay(500);
+    }
+    return { error: 'cancelled' };
+  })();
+
+  const result = await Promise.race([pollPromise, timeoutPromise]);
+  if (result.error) {
+    if (result.error === 'timeout') throw new Error('Timeout de rede atingido (waitAspNetReady).');
+    if (result.error === 'destroyed') throw new Error('WebContents destruído durante a espera.');
+    if (result.error === 'cancelled') throw new Error('Sincronização cancelada pelo usuário.');
+  }
+  return true;
 }
 
 let isScrapingRunning = false;
@@ -261,11 +121,62 @@ async function iniciarScraping(cookies) {
     log('Iniciando scraping com BrowserWindow invisível...');
     
     win = new BrowserWindow({
-      show: false,
+      show: true,
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: false
       }
+    });
+    win.webContents.openDevTools();
+
+    // ==================================================
+    // PATCH SSRS INFINITE LOOP
+    // ==================================================
+    // SSRS injects an iframe with `onload="if (location != 'javascript:\'\'') location.replace('javascript:\'\'');"`.
+    // Modern Chromium normalizes `javascript:''` to `about:blank`, making the condition always TRUE.
+    // This causes an infinite reload loop, which triggers Chromium's IPC Flooding Protection and freezes the page.
+    // We inject a MutationObserver globally to nuke this `onload` attribute instantly.
+    win.webContents.on('did-finish-load', () => {
+      win.webContents.executeJavaScript(`
+        if (!window._ssrsPatchApplied) {
+           window._ssrsPatchApplied = true;
+           
+           // Nuke iframes already in the DOM
+           const nukeBuggyIframes = () => {
+             document.querySelectorAll('iframe[id*="rptViewerTouchSession"]').forEach(f => {
+                if (f.hasAttribute('onload')) {
+                   f.removeAttribute('onload');
+                   console.log('[Scraper-DOM] Nucked buggy onload from SSRS session iframe');
+                }
+             });
+           };
+           nukeBuggyIframes();
+           
+           // Monkey-patch XHR to strip the buggy onload from ASP.NET UpdatePanel responses BEFORE they hit the DOM!
+           const origXhrOpen = XMLHttpRequest.prototype.open;
+           XMLHttpRequest.prototype.open = function() {
+              this.addEventListener('readystatechange', function() {
+                 if (this.readyState === 4 && this.responseText) {
+                    try {
+                       // O SSRS manda o iframe dentro da string do UpdatePanel.
+                       // Vamos interceptar o responseText usando Object.defineProperty no objeto XHR atual.
+                       const originalText = this.responseText;
+                       if (originalText.includes('rptViewerTouchSession')) {
+                          const safeText = originalText.replace(/onload="if \\(frames\\['rptViewerTouchSession\\d+'\\]\\.location[^>]+"/g, '');
+                          if (safeText !== originalText) {
+                             Object.defineProperty(this, 'responseText', { value: safeText });
+                             console.log('[Scraper-DOM] XHR Patch: Buggy SSRS onload stripped from AJAX response!');
+                          }
+                       }
+                    } catch(e) {}
+                 }
+              });
+              origXhrOpen.apply(this, arguments);
+           };
+           
+           new MutationObserver(nukeBuggyIframes).observe(document.documentElement, { childList: true, subtree: true });
+        }
+      `).catch(() => {});
     });
 
     win.webContents.on('console-message', (event, levelOrDetails, messageText) => {
@@ -389,19 +300,26 @@ async function iniciarScraping(cookies) {
               const escOpts = getOpts(escId);
               const anoOpts = getOpts(anoId);
               
+              const stateLog = {
+                regOpts: regOpts.length, regVal: getVal(regId),
+                munOpts: munOpts.length, munVal: getVal(munId),
+                escOpts: escOpts.length, escVal: getVal(escId)
+              };
+              console.log('[Scraper-DOM] Avaliando estado:', JSON.stringify(stateLog));
+
               const regCurrent = regOpts.find(o => o.val === getVal(regId));
-              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts), nextId: munId };
+              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts), nextId: munId, debug: stateLog };
               
               const munCurrent = munOpts.find(o => o.val === getVal(munId));
-              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts), nextId: escId };
+              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts), nextId: escId, debug: stateLog };
               
               const escCurrent = escOpts.find(o => o.val === getVal(escId));
-              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId };
+              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId, debug: stateLog };
               
               const anoCurrent = anoOpts.find(o => o.val === getVal(anoId));
-              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: 'rptViewer_ctl00_ctl11_ddValue' };
+              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: 'rptViewer_ctl00_ctl11_ddValue', debug: stateLog };
               
-              return { action: 'done' };
+              return { action: 'done', debug: stateLog };
             } catch (e) {
               return { error: e.message };
             }
@@ -411,13 +329,18 @@ async function iniciarScraping(cookies) {
         if (setupState.error) {
           throw new Error('Erro injetando scripts de setup: ' + setupState.error);
         }
+        
+        log(`[Debug] SetupState resolveu: ${JSON.stringify(setupState)}`);
+        try {
+          const debugLogPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_scraper_loop.txt');
+          fs.appendFileSync(debugLogPath, `[${new Date().toISOString()}] SetupState resolveu: ${JSON.stringify(setupState)}\n`, 'utf-8');
+        } catch(e) {}
 
         if (setupState.action === 'select') {
           if (!setupState.opt) {
-            // Dropdown dependente pode estar vazio porque o anterior ainda não populou — aguarda ao invés de abortar
             log(`Dropdown ${setupState.id} vazio, aguardando repopulação via postback...`);
             await waitAspNetReady(win, '', `return (() => { const el = document.getElementById('${setupState.id}'); if (!el) return false; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
-            continue; // Re-avalia o SETUP_FILTERS com o dropdown agora populado
+            continue; 
           }
           
           const label = FIELD_NAMES[setupState.id] || setupState.id;
@@ -425,16 +348,19 @@ async function iniciarScraping(cookies) {
           log(`${label}: ${setupState.opt.text} ✔`);
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${label}: ${setupState.opt.text} selecionado(a).` });
           
-          // Seleciona e dispara o change, depois aguarda que o PRÓXIMO dropdown dependente seja populado
           const nextDropdownId = setupState.nextId || null;
-          const readyCond = nextDropdownId
-            ? `return (() => { const el = document.getElementById('${nextDropdownId}'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`
-            : null;
+          const readyCond = nextDropdownId ? `return (() => { 
+            const el = document.getElementById('${nextDropdownId}');
+            if (!el) return true;
+            const opts = Array.from(el.options);
+            return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE'));
+          })()` : null;
           
           await waitAspNetReady(win, `
             const nextEl = document.getElementById('${nextDropdownId}');
             if (nextEl) { nextEl.innerHTML = ''; }
             const el = document.getElementById('${setupState.id}');
+            console.log('[Scraper-DOM] Disparando change em ${setupState.id} para valor', ${JSON.stringify(setupState.opt.val)});
             el.value = ${JSON.stringify(setupState.opt.val)};
             el.dispatchEvent(new Event('change', { bubbles: true }));
           `, readyCond);
@@ -452,7 +378,7 @@ async function iniciarScraping(cookies) {
         const fetchSem = await win.webContents.executeJavaScript(`
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
-            if (!el) return { error: 'Dropdown semestre não encontrado.' };
+            if (!el) return { sems: [] };
             const isValid = (t) => {
               const upper = t.toUpperCase();
               return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
@@ -467,6 +393,13 @@ async function iniciarScraping(cookies) {
         if (fetchSem.error) throw new Error(fetchSem.error);
         
         semestresToScrape = fetchSem.sems;
+        if (semestresToScrape.length === 0) {
+           log('Nenhum semestre válido encontrado. Finalizando...');
+           atualizarLogScraping(logId, { status: 'concluido', mensagem: 'Nenhum semestre/dado encontrado para os filtros selecionados.' });
+           scrapingState = 'DONE';
+           continue;
+        }
+        
         log(`Encontrados ${semestresToScrape.length} semestres válidos.`);
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${semestresToScrape.length} semestres encontrados.` });
         scrapingState = 'SELECT_SEMESTRE';
@@ -487,12 +420,39 @@ async function iniciarScraping(cookies) {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Analisando Semestre: ${currentSemestre.text}` });
 
         await waitAspNetReady(win, `
+          window._ssrsLoadingStarted = false;
+          window._ssrsLoadingFinished = false;
+          
+          const observer = new MutationObserver(() => {
+             const waitEl = document.getElementById('AsyncWait_Wait') || document.querySelector('div[id*="AsyncWait"]');
+             if (waitEl && waitEl.style.display !== 'none') {
+                window._ssrsLoadingStarted = true;
+             } else if (window._ssrsLoadingStarted) {
+                window._ssrsLoadingFinished = true;
+             }
+          });
+          observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'display'] });
+          
           const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
           if (nextEl) { nextEl.innerHTML = ''; }
+
           const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
           el.value = ${JSON.stringify(currentSemestre.val)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
-        `, `return (() => { const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
+          
+          // Se for tão rápido que não der trigger no observer, também checa a API interna do SSRS
+          const checkInternalApi = setInterval(() => {
+             if (typeof $find !== 'function') return;
+             const viewer = $find('rptViewer');
+             if (viewer && typeof viewer.get_isLoading === 'function') {
+                if (viewer.get_isLoading()) window._ssrsLoadingStarted = true;
+                else if (window._ssrsLoadingStarted) window._ssrsLoadingFinished = true;
+             }
+          }, 50);
+          
+          // Cleanup pra evitar vazamento de observer
+          setTimeout(() => { observer.disconnect(); clearInterval(checkInternalApi); }, 10000);
+        `, `return window._ssrsLoadingFinished;`);
         scrapingState = 'FETCH_TURMAS';
       }
 
@@ -503,7 +463,7 @@ async function iniciarScraping(cookies) {
         const fetchTur = await win.webContents.executeJavaScript(`
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
-            if (!el) return { error: 'Dropdown turma não encontrado.' };
+            if (!el) return { turmas: [] };
             const isValid = (t) => {
               const upper = t.toUpperCase();
               return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
@@ -564,8 +524,18 @@ async function iniciarScraping(cookies) {
              });
           } catch(e) {}
 
-          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = ${JSON.stringify(currentTurma.val)};
-          document.getElementById('rptViewer_ctl00_ctl00').click();
+          const turmaEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+          if (turmaEl) {
+             turmaEl.value = ${JSON.stringify(currentTurma.val)};
+          }
+          
+          setTimeout(() => {
+             const btn = document.getElementById('rptViewer_ctl00_ctl00');
+             if (btn) {
+                console.log('[Scraper-DOM] Clicando no botão View Report...');
+                btn.click();
+             }
+          }, 500);
         `);
         
         scrapingState = 'WAIT_IFRAME_REPORT';
@@ -603,6 +573,10 @@ async function iniciarScraping(cookies) {
                   clearTimeout(extractDebounceTimer);
                   extractDebounceTimer = null;
                }
+               if (window._pollTimer) {
+                  clearInterval(window._pollTimer);
+                  window._pollTimer = null;
+               }
                if (loadHandler) {
                  document.body.removeEventListener('load', loadHandler, true);
                }
@@ -618,6 +592,11 @@ async function iniciarScraping(cookies) {
                   resolve(result);
                }
             };
+            
+            window._pollTimer = setInterval(() => {
+               if (!isDone) tryExtract();
+            }, 1000);
+
 
             timeoutTimer = setTimeout(() => {
                let fallbackHtml = '';
@@ -691,11 +670,11 @@ async function iniciarScraping(cookies) {
                 
                 if (foundId) lastFoundId = foundId;
                 
-                if (!iframe) return; 
+                if (!iframe) { console.log('[Scraper-DOM] Iframe não encontrado.'); return; }
                 
                 let doc = null;
                 try { doc = iframe.contentDocument; } catch(e) { }
-                if (!doc || !doc.body) return; 
+                if (!doc || !doc.body) { console.log('[Scraper-DOM] doc ou doc.body inacessível.'); return; }
                 const reportRootDoc = doc;
 
                 // SSRS pode ter um sub-frame "report" dentro do frameset principal
@@ -710,19 +689,16 @@ async function iniciarScraping(cookies) {
                         subFrameLoadHandler = tryExtract;
                         subFrame.addEventListener('load', subFrameLoadHandler);
                      }
-                     // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
-                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
+                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) { console.log('[Scraper-DOM] subFrame doc inacessível.'); return; }
                      doc = subFrame.contentDocument;
                   }
                 } catch(e) { }
 
-                // Agora doc aponta para o documento final (nested ou outer)
                 lastReportDoc = doc;
                 
-                // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
                 const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
                 const scrapedVal = doc.body.getAttribute('data-scraped-turma');
-                if (scrapedVal === markerKey) return;
+                if (scrapedVal === markerKey) { console.log('[Scraper-DOM] Turma já extraída no DOM (marker matched).'); return; }
 
                 if (!iframeObserver || iframeObserver.doc !== doc) {
                    if (iframeObserver) iframeObserver.disconnect();
@@ -731,27 +707,24 @@ async function iniciarScraping(cookies) {
                    iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
                 }
 
-                // Verifica indicadores de carregamento SSRS antes de processar qualquer coisa
-                if (doc.readyState !== 'complete') return;
+                if (doc.readyState !== 'complete') { console.log('[Scraper-DOM] readyState não é complete.'); return; }
 
                 const viewerLoadingState = getViewerLoadingState();
-                if (viewerLoadingState === true) return;
+                if (viewerLoadingState === true) { console.log('[Scraper-DOM] viewer.get_isLoading() é true.'); return; }
                 
-                // Sinal explícito do SSRS de carregamento: AsyncWait
                 const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(waitPanel)) return;
+                if (isVisible(waitPanel)) { console.log('[Scraper-DOM] waitPanel está visível.'); return; }
 
                 const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(outerWaitPanel)) return;
+                if (isVisible(outerWaitPanel)) { console.log('[Scraper-DOM] outerWaitPanel está visível.'); return; }
 
-                // Apenas processa se houver uma nova tabela que o AJAX acabou de criar (ou se for um doc novo inteiro)
                 const allTables = Array.from(doc.querySelectorAll('table'));
-                if (allTables.length === 0) return; // Nenhuma tabela ainda (SSRS sempre gera tabelas, se está vazio, está carregando)
+                if (allTables.length === 0) { console.log('[Scraper-DOM] Nenhuma tabela encontrada no doc.'); return; }
                 
                 const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
-                if (newTables.length === 0) return; // O UpdatePanel ainda não substituiu o DOM antigo!
+                if (newTables.length === 0) { console.log('[Scraper-DOM] Todas as tabelas são velhas (data-old-report).'); return; }
 
-                // Se passou por todas as gates de carregamento, o relatório carregou!
+                console.log('[Scraper-DOM] Tabelas novas encontradas! Processando trs...');
                 reportSuccessfullyLoaded = true;
 
                 const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
@@ -763,6 +736,7 @@ async function iniciarScraping(cookies) {
                 });
                 
                 if (trs.length === 0) {
+                   console.log('[Scraper-DOM] 0 linhas de aluno encontradas. Iniciando emptyTimer...');
                    window._emptyTimer = setTimeout(() => {
                       window._emptyTimer = null;
                       let fallbackHtml = '';
@@ -873,6 +847,14 @@ async function iniciarScraping(cookies) {
       if (logId) atualizarLogScraping(logId, { status: 'cancelado', mensagem: error.message });
     } else {
       console.error('[Scraper] Erro catastrófico durante o scraping:', error);
+      try {
+         if (win && win.webContents) {
+            const dumpHtml = await win.webContents.executeJavaScript(`document.documentElement.outerHTML`);
+            const dumpPath = require('path').join(require('electron').app.getPath('userData'), 'data', 'error_dump.html');
+            require('fs').writeFileSync(dumpPath, dumpHtml, 'utf-8');
+            console.error('[Scraper] HTML da página de erro salvo em:', dumpPath);
+         }
+      } catch(e) { console.error('Erro ao salvar dump HTML:', e); }
       if (logId) {
         atualizarLogScraping(logId, { 
           status: 'erro', 

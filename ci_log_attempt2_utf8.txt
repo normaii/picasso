@@ -1,0 +1,335 @@
+﻿release	Set up job	´╗┐2026-09-25T22:27:21.6571239Z Current runner version: '2.337.0'
+release	Set up job	2026-09-25T22:27:21.6634271Z ##[group]Runner Image Provisioner
+release	Set up job	2026-09-25T22:27:21.6635536Z Hosted Compute Agent
+release	Set up job	2026-09-25T22:27:21.6636440Z Version: 20260828.587
+release	Set up job	2026-09-25T22:27:21.6637464Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+release	Set up job	2026-09-25T22:27:21.6638676Z Build Date: 2026-08-28T16:44:25Z
+release	Set up job	2026-09-25T22:27:21.6639857Z Worker ID: {b8325701-32b5-4119-84f9-cd35d16515ad}
+release	Set up job	2026-09-25T22:27:21.6641085Z Azure Region: eastus
+release	Set up job	2026-09-25T22:27:21.6641958Z ##[endgroup]
+release	Set up job	2026-09-25T22:27:21.6644631Z ##[group]Operating System
+release	Set up job	2026-09-25T22:27:21.6645760Z Microsoft Windows Server 2025
+release	Set up job	2026-09-25T22:27:21.6646797Z 10.0.26100
+release	Set up job	2026-09-25T22:27:21.6647694Z Datacenter
+release	Set up job	2026-09-25T22:27:21.6648557Z ##[endgroup]
+release	Set up job	2026-09-25T22:27:21.6649479Z ##[group]Runner Image
+release	Set up job	2026-09-25T22:27:21.6650570Z Image: windows-2025-vs2026
+release	Set up job	2026-09-25T22:27:21.6651684Z Version: 20260922.246.2
+release	Set up job	2026-09-25T22:27:21.6654017Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260922.246/images/windows/Windows2025-VS2026-Readme.md
+release	Set up job	2026-09-25T22:27:21.6657826Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260922.246
+release	Set up job	2026-09-25T22:27:21.6659934Z ##[endgroup]
+release	Set up job	2026-09-25T22:27:21.6662278Z ##[group]GITHUB_TOKEN Permissions
+release	Set up job	2026-09-25T22:27:21.6665510Z Contents: write
+release	Set up job	2026-09-25T22:27:21.6666455Z Issues: write
+release	Set up job	2026-09-25T22:27:21.6667558Z Metadata: read
+release	Set up job	2026-09-25T22:27:21.6668479Z PullRequests: write
+release	Set up job	2026-09-25T22:27:21.6669411Z ##[endgroup]
+release	Set up job	2026-09-25T22:27:21.6672417Z Secret source: Actions
+release	Set up job	2026-09-25T22:27:21.6673899Z Cache mode: write
+release	Set up job	2026-09-25T22:27:21.6675034Z Prepare workflow directory
+release	Set up job	2026-09-25T22:27:21.7205452Z Prepare all required actions
+release	Set up job	2026-09-25T22:27:21.7254838Z Getting action download info
+release	Set up job	2026-09-25T22:27:21.8898711Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+release	Set up job	2026-09-25T22:27:22.0354559Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+release	Set up job	2026-09-25T22:27:22.3410751Z Complete job name: release
+release	Checkout Code	´╗┐2026-09-25T22:27:22.4791009Z ##[group]Run actions/checkout@v4
+release	Checkout Code	2026-09-25T22:27:22.4792296Z with:
+release	Checkout Code	2026-09-25T22:27:22.4792815Z   fetch-depth: 0
+release	Checkout Code	2026-09-25T22:27:22.4793377Z   persist-credentials: false
+release	Checkout Code	2026-09-25T22:27:22.4794009Z   repository: normaii/picasso
+release	Checkout Code	2026-09-25T22:27:22.4798736Z   token: ***
+release	Checkout Code	2026-09-25T22:27:22.4799158Z   ssh-strict: true
+release	Checkout Code	2026-09-25T22:27:22.4799588Z   ssh-user: git
+release	Checkout Code	2026-09-25T22:27:22.4799991Z   clean: true
+release	Checkout Code	2026-09-25T22:27:22.4800419Z   sparse-checkout-cone-mode: true
+release	Checkout Code	2026-09-25T22:27:22.4800931Z   fetch-tags: false
+release	Checkout Code	2026-09-25T22:27:22.4801357Z   show-progress: true
+release	Checkout Code	2026-09-25T22:27:22.4801784Z   lfs: false
+release	Checkout Code	2026-09-25T22:27:22.4802178Z   submodules: false
+release	Checkout Code	2026-09-25T22:27:22.4802611Z   set-safe-directory: true
+release	Checkout Code	2026-09-25T22:27:22.4803099Z   allow-unsafe-pr-checkout: false
+release	Checkout Code	2026-09-25T22:27:22.4803797Z env:
+release	Checkout Code	2026-09-25T22:27:22.4804247Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Checkout Code	2026-09-25T22:27:22.4804958Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:22.6300420Z Syncing repository: normaii/picasso
+release	Checkout Code	2026-09-25T22:27:22.6302241Z ##[group]Getting Git version info
+release	Checkout Code	2026-09-25T22:27:22.6302886Z Working directory is 'D:\a\picasso\picasso'
+release	Checkout Code	2026-09-25T22:27:22.7492641Z [command]"C:\Program Files\Git\bin\git.exe" version
+release	Checkout Code	2026-09-25T22:27:23.1481467Z git version 2.55.0.windows.5
+release	Checkout Code	2026-09-25T22:27:23.1535906Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:23.1557896Z Temporarily overriding HOME='D:\a\_temp\54f67b46-f2fc-4188-98b2-7ec8f5bd69d4' before making global git config changes
+release	Checkout Code	2026-09-25T22:27:23.1560441Z Adding repository directory to the temporary git global config as a safe directory
+release	Checkout Code	2026-09-25T22:27:23.1570270Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\picasso\picasso
+release	Checkout Code	2026-09-25T22:27:23.2232147Z Deleting the contents of 'D:\a\picasso\picasso'
+release	Checkout Code	2026-09-25T22:27:23.2238370Z ##[group]Initializing the repository
+release	Checkout Code	2026-09-25T22:27:23.2247461Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\picasso\picasso
+release	Checkout Code	2026-09-25T22:27:23.3094393Z Initialized empty Git repository in D:/a/picasso/picasso/.git/
+release	Checkout Code	2026-09-25T22:27:23.3143199Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/normaii/picasso
+release	Checkout Code	2026-09-25T22:27:23.3796988Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:23.3798324Z ##[group]Disabling automatic garbage collection
+release	Checkout Code	2026-09-25T22:27:23.3806150Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+release	Checkout Code	2026-09-25T22:27:23.4109790Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:23.4111058Z ##[group]Setting up auth
+release	Checkout Code	2026-09-25T22:27:23.4122660Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+release	Checkout Code	2026-09-25T22:27:23.4421476Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+release	Checkout Code	2026-09-25T22:27:24.9033329Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+release	Checkout Code	2026-09-25T22:27:24.9376581Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+release	Checkout Code	2026-09-25T22:27:25.4756896Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+release	Checkout Code	2026-09-25T22:27:25.5058541Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+release	Checkout Code	2026-09-25T22:27:26.0928504Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+release	Checkout Code	2026-09-25T22:27:26.1279678Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:26.1280627Z ##[group]Fetching the repository
+release	Checkout Code	2026-09-25T22:27:26.1294341Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+release	Checkout Code	2026-09-25T22:27:27.4751385Z From https://github.com/normaii/picasso
+release	Checkout Code	2026-09-25T22:27:27.4752284Z  * [new branch]      develop                -> origin/develop
+release	Checkout Code	2026-09-25T22:27:27.4753074Z  * [new branch]      feature/PIC-1-fix-builder -> origin/feature/PIC-1-fix-builder
+release	Checkout Code	2026-09-25T22:27:27.4754398Z  * [new branch]      feature/PIC-1-fix-builder-args -> origin/feature/PIC-1-fix-builder-args
+release	Checkout Code	2026-09-25T22:27:27.4755461Z  * [new branch]      feature/PIC-13-refinement -> origin/feature/PIC-13-refinement
+release	Checkout Code	2026-09-25T22:27:27.4756255Z  * [new branch]      feature/PIC-13-scraper-events -> origin/feature/PIC-13-scraper-events
+release	Checkout Code	2026-09-25T22:27:27.4757923Z  * [new branch]      feature/PIC-13-scraper-events-v10 -> origin/feature/PIC-13-scraper-events-v10
+release	Checkout Code	2026-09-25T22:27:27.4758722Z  * [new branch]      feature/PIC-13-scraper-events-v2 -> origin/feature/PIC-13-scraper-events-v2
+release	Checkout Code	2026-09-25T22:27:27.4759407Z  * [new branch]      feature/PIC-13-scraper-events-v3 -> origin/feature/PIC-13-scraper-events-v3
+release	Checkout Code	2026-09-25T22:27:27.4760100Z  * [new branch]      feature/PIC-13-scraper-events-v4 -> origin/feature/PIC-13-scraper-events-v4
+release	Checkout Code	2026-09-25T22:27:27.4760691Z  * [new branch]      feature/PIC-13-scraper-events-v5 -> origin/feature/PIC-13-scraper-events-v5
+release	Checkout Code	2026-09-25T22:27:27.4761287Z  * [new branch]      feature/PIC-13-scraper-events-v6 -> origin/feature/PIC-13-scraper-events-v6
+release	Checkout Code	2026-09-25T22:27:27.4761916Z  * [new branch]      feature/PIC-13-scraper-events-v7 -> origin/feature/PIC-13-scraper-events-v7
+release	Checkout Code	2026-09-25T22:27:27.4762491Z  * [new branch]      feature/PIC-13-scraper-events-v8 -> origin/feature/PIC-13-scraper-events-v8
+release	Checkout Code	2026-09-25T22:27:27.4763065Z  * [new branch]      feature/PIC-13-scraper-events-v9 -> origin/feature/PIC-13-scraper-events-v9
+release	Checkout Code	2026-09-25T22:27:27.4763638Z  * [new branch]      feature/PIC-2-multi-escola -> origin/feature/PIC-2-multi-escola
+release	Checkout Code	2026-09-25T22:27:27.4764124Z  * [new branch]      feature/PIC-28-xss-fix -> origin/feature/PIC-28-xss-fix
+release	Checkout Code	2026-09-25T22:27:27.4765677Z  * [new branch]      feature/PIC-29-chatops -> origin/feature/PIC-29-chatops
+release	Checkout Code	2026-09-25T22:27:27.4766339Z  * [new branch]      feature/PIC-3-arquivamento -> origin/feature/PIC-3-arquivamento
+release	Checkout Code	2026-09-25T22:27:27.4767701Z  * [new branch]      feature/PIC-3-arquivamento-v11 -> origin/feature/PIC-3-arquivamento-v11
+release	Checkout Code	2026-09-25T22:27:27.4768360Z  * [new branch]      feature/PIC-3-arquivamento-v12 -> origin/feature/PIC-3-arquivamento-v12
+release	Checkout Code	2026-09-25T22:27:27.4768930Z  * [new branch]      feature/PIC-3-arquivamento-v13 -> origin/feature/PIC-3-arquivamento-v13
+release	Checkout Code	2026-09-25T22:27:27.4769489Z  * [new branch]      feature/PIC-3-arquivamento-v14 -> origin/feature/PIC-3-arquivamento-v14
+release	Checkout Code	2026-09-25T22:27:27.4770060Z  * [new branch]      feature/PIC-3-arquivamento-v15 -> origin/feature/PIC-3-arquivamento-v15
+release	Checkout Code	2026-09-25T22:27:27.4770666Z  * [new branch]      feature/PIC-3-arquivamento-v16 -> origin/feature/PIC-3-arquivamento-v16
+release	Checkout Code	2026-09-25T22:27:27.4771235Z  * [new branch]      feature/PIC-3-arquivamento-v2 -> origin/feature/PIC-3-arquivamento-v2
+release	Checkout Code	2026-09-25T22:27:27.4771788Z  * [new branch]      feature/PIC-3-arquivamento-v3 -> origin/feature/PIC-3-arquivamento-v3
+release	Checkout Code	2026-09-25T22:27:27.4772326Z  * [new branch]      feature/PIC-3-arquivamento-v4 -> origin/feature/PIC-3-arquivamento-v4
+release	Checkout Code	2026-09-25T22:27:27.4772875Z  * [new branch]      feature/PIC-3-arquivamento-v5 -> origin/feature/PIC-3-arquivamento-v5
+release	Checkout Code	2026-09-25T22:27:27.4773415Z  * [new branch]      feature/PIC-3-arquivamento-v6 -> origin/feature/PIC-3-arquivamento-v6
+release	Checkout Code	2026-09-25T22:27:27.4773954Z  * [new branch]      feature/PIC-3-arquivamento-v7 -> origin/feature/PIC-3-arquivamento-v7
+release	Checkout Code	2026-09-25T22:27:27.4774901Z  * [new branch]      feature/PIC-3-arquivamento-v8 -> origin/feature/PIC-3-arquivamento-v8
+release	Checkout Code	2026-09-25T22:27:27.4775423Z  * [new branch]      feature/PIC-3-refinement -> origin/feature/PIC-3-refinement
+release	Checkout Code	2026-09-25T22:27:27.4775925Z  * [new branch]      feature/PIC-33-refinement -> origin/feature/PIC-33-refinement
+release	Checkout Code	2026-09-25T22:27:27.4776450Z  * [new branch]      feature/PIC-98-logo-opcional -> origin/feature/PIC-98-logo-opcional
+release	Checkout Code	2026-09-25T22:27:27.4777690Z  * [new branch]      hotfix/PIC-33          -> origin/hotfix/PIC-33
+release	Checkout Code	2026-09-25T22:27:27.4778069Z  * [new branch]      master                 -> origin/master
+release	Checkout Code	2026-09-25T22:27:27.4778620Z  * [new branch]      release                -> origin/release
+release	Checkout Code	2026-09-25T22:27:27.4779199Z  * [new tag]         v0.0.1                 -> v0.0.1
+release	Checkout Code	2026-09-25T22:27:27.4779737Z  * [new tag]         v0.0.10                -> v0.0.10
+release	Checkout Code	2026-09-25T22:27:27.4780225Z  * [new tag]         v0.0.2                 -> v0.0.2
+release	Checkout Code	2026-09-25T22:27:27.4780707Z  * [new tag]         v0.0.3                 -> v0.0.3
+release	Checkout Code	2026-09-25T22:27:27.4781165Z  * [new tag]         v0.0.4                 -> v0.0.4
+release	Checkout Code	2026-09-25T22:27:27.4781631Z  * [new tag]         v0.0.5                 -> v0.0.5
+release	Checkout Code	2026-09-25T22:27:27.4782092Z  * [new tag]         v0.0.7                 -> v0.0.7
+release	Checkout Code	2026-09-25T22:27:27.4782578Z  * [new tag]         v0.0.9                 -> v0.0.9
+release	Checkout Code	2026-09-25T22:27:27.4783053Z  * [new tag]         v0.1.0                 -> v0.1.0
+release	Checkout Code	2026-09-25T22:27:27.4783538Z  * [new tag]         v0.1.0-dev.1           -> v0.1.0-dev.1
+release	Checkout Code	2026-09-25T22:27:27.4784047Z  * [new tag]         v0.1.0-dev.2           -> v0.1.0-dev.2
+release	Checkout Code	2026-09-25T22:27:27.4784559Z  * [new tag]         v0.1.0-dev.3           -> v0.1.0-dev.3
+release	Checkout Code	2026-09-25T22:27:27.4785099Z  * [new tag]         v0.1.0-dev.4           -> v0.1.0-dev.4
+release	Checkout Code	2026-09-25T22:27:27.4785626Z  * [new tag]         v0.1.0-dev.5           -> v0.1.0-dev.5
+release	Checkout Code	2026-09-25T22:27:27.4786147Z  * [new tag]         v0.1.0-dev.6           -> v0.1.0-dev.6
+release	Checkout Code	2026-09-25T22:27:27.4786716Z  * [new tag]         v0.1.0-dev.7           -> v0.1.0-dev.7
+release	Checkout Code	2026-09-25T22:27:27.4787381Z  * [new tag]         v0.1.0-dev.8           -> v0.1.0-dev.8
+release	Checkout Code	2026-09-25T22:27:27.4787913Z  * [new tag]         v0.1.0-dev.9           -> v0.1.0-dev.9
+release	Checkout Code	2026-09-25T22:27:27.4788763Z  * [new tag]         v0.1.0-rc.1            -> v0.1.0-rc.1
+release	Checkout Code	2026-09-25T22:27:27.4789307Z  * [new tag]         v0.1.0-rc.2            -> v0.1.0-rc.2
+release	Checkout Code	2026-09-25T22:27:27.4789851Z  * [new tag]         v0.1.0-rc.3            -> v0.1.0-rc.3
+release	Checkout Code	2026-09-25T22:27:27.4814081Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/develop
+release	Checkout Code	2026-09-25T22:27:27.5270695Z   origin/develop
+release	Checkout Code	2026-09-25T22:27:27.5325422Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/develop
+release	Checkout Code	2026-09-25T22:27:27.5641901Z 42c3c692e5ca4d19ab0f576da2f3f5c12f97d9be
+release	Checkout Code	2026-09-25T22:27:27.5690017Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +27ad6775c1672d672a7463db6023a2a1d0441570:refs/remotes/origin/develop
+release	Checkout Code	2026-09-25T22:27:27.6357487Z From https://github.com/normaii/picasso
+release	Checkout Code	2026-09-25T22:27:27.6358597Z  + 42c3c69...27ad677 27ad6775c1672d672a7463db6023a2a1d0441570 -> origin/develop  (forced update)
+release	Checkout Code	2026-09-25T22:27:27.6403546Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:27.6403937Z ##[group]Determining the checkout info
+release	Checkout Code	2026-09-25T22:27:27.6406348Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:27.6415054Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+release	Checkout Code	2026-09-25T22:27:27.7053270Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+release	Checkout Code	2026-09-25T22:27:27.7435962Z ##[group]Checking out the ref
+release	Checkout Code	2026-09-25T22:27:27.7449056Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B develop refs/remotes/origin/develop
+release	Checkout Code	2026-09-25T22:27:27.8586075Z Switched to a new branch 'develop'
+release	Checkout Code	2026-09-25T22:27:27.8611399Z branch 'develop' set up to track 'origin/develop'.
+release	Checkout Code	2026-09-25T22:27:27.8663843Z ##[endgroup]
+release	Checkout Code	2026-09-25T22:27:28.1668856Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+release	Checkout Code	2026-09-25T22:27:28.2079810Z 27ad6775c1672d672a7463db6023a2a1d0441570
+release	Checkout Code	2026-09-25T22:27:28.2140849Z ##[group]Removing auth
+release	Checkout Code	2026-09-25T22:27:28.2188004Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+release	Checkout Code	2026-09-25T22:27:28.2805950Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+release	Checkout Code	2026-09-25T22:27:29.0022870Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+release	Checkout Code	2026-09-25T22:27:29.0275359Z http.https://github.com/.extraheader
+release	Checkout Code	2026-09-25T22:27:29.0317473Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+release	Checkout Code	2026-09-25T22:27:29.0624144Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+release	Checkout Code	2026-09-25T22:27:29.6217614Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+release	Checkout Code	2026-09-25T22:27:29.6510062Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+release	Checkout Code	2026-09-25T22:27:30.1945922Z ##[endgroup]
+release	Configure Git	´╗┐2026-09-25T22:27:30.2313225Z ##[group]Run git config --global user.name "github-actions[bot]"
+release	Configure Git	2026-09-25T22:27:30.2313836Z ^[[36;1mgit config --global user.name "github-actions[bot]"^[[0m
+release	Configure Git	2026-09-25T22:27:30.2314326Z ^[[36;1mgit config --global user.email "github-actions[bot]@users.noreply.github.com"^[[0m
+release	Configure Git	2026-09-25T22:27:30.8746913Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+release	Configure Git	2026-09-25T22:27:30.8747385Z env:
+release	Configure Git	2026-09-25T22:27:30.8747644Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Configure Git	2026-09-25T22:27:30.8747973Z ##[endgroup]
+release	Use Node.js	´╗┐2026-09-25T22:27:31.6294239Z ##[group]Run actions/setup-node@v4
+release	Use Node.js	2026-09-25T22:27:31.6294622Z with:
+release	Use Node.js	2026-09-25T22:27:31.6294815Z   node-version: 24
+release	Use Node.js	2026-09-25T22:27:31.6295226Z   cache: npm
+release	Use Node.js	2026-09-25T22:27:31.6295435Z   always-auth: false
+release	Use Node.js	2026-09-25T22:27:31.6295669Z   check-latest: false
+release	Use Node.js	2026-09-25T22:27:31.6298969Z   token: ***
+release	Use Node.js	2026-09-25T22:27:31.6299169Z env:
+release	Use Node.js	2026-09-25T22:27:31.6299392Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Use Node.js	2026-09-25T22:27:31.6299696Z ##[endgroup]
+release	Use Node.js	2026-09-25T22:27:31.8117427Z Found in cache @ C:\hostedtoolcache\windows\node\24.21.0\x64
+release	Use Node.js	2026-09-25T22:27:31.8126289Z (node:3624) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+release	Use Node.js	2026-09-25T22:27:31.8127563Z (Use `node --trace-deprecation ...` to show where the warning was created)
+release	Use Node.js	2026-09-25T22:27:31.8130634Z ##[group]Environment details
+release	Use Node.js	2026-09-25T22:27:36.7699121Z node: v24.21.0
+release	Use Node.js	2026-09-25T22:27:36.7699412Z npm: 11.19.0
+release	Use Node.js	2026-09-25T22:27:36.7699589Z yarn: 1.22.22
+release	Use Node.js	2026-09-25T22:27:36.7700070Z ##[endgroup]
+release	Use Node.js	2026-09-25T22:27:36.8549657Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\24.21.0\x64\npm.cmd config get cache"
+release	Use Node.js	2026-09-25T22:27:37.3663677Z C:\npm\cache
+release	Use Node.js	2026-09-25T22:27:37.6357132Z npm cache is not found
+release	Install Dependencies	´╗┐2026-09-25T22:27:37.6672435Z ##[group]Run npm ci
+release	Install Dependencies	2026-09-25T22:27:37.6672766Z ^[[36;1mnpm ci^[[0m
+release	Install Dependencies	2026-09-25T22:27:37.6746473Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+release	Install Dependencies	2026-09-25T22:27:37.6746838Z env:
+release	Install Dependencies	2026-09-25T22:27:37.6747067Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Install Dependencies	2026-09-25T22:27:37.6747355Z ##[endgroup]
+release	Install Dependencies	2026-09-25T22:27:46.2784959Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+release	Install Dependencies	2026-09-25T22:27:46.4172185Z npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+release	Install Dependencies	2026-09-25T22:27:47.5315897Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+release	Install Dependencies	2026-09-25T22:27:48.8571215Z npm warn deprecated @npmcli/move-file@2.0.1: This functionality has been moved to @npmcli/fs
+release	Install Dependencies	2026-09-25T22:27:49.0160789Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+release	Install Dependencies	2026-09-25T22:27:50.1144855Z npm warn deprecated glob@8.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+release	Install Dependencies	2026-09-25T22:27:50.1995250Z npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+release	Install Dependencies	2026-09-25T22:27:51.3791407Z npm warn deprecated gauge@4.0.4: This package is no longer supported.
+release	Install Dependencies	2026-09-25T22:27:51.4004635Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+release	Install Dependencies	2026-09-25T22:27:51.8144271Z npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+release	Install Dependencies	2026-09-25T22:27:55.6267940Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+release	Install Dependencies	2026-09-25T22:28:08.7833524Z 
+release	Install Dependencies	2026-09-25T22:28:08.7835258Z > picasso@0.1.0-dev.8 prepare
+release	Install Dependencies	2026-09-25T22:28:08.7836323Z > husky
+release	Install Dependencies	2026-09-25T22:28:08.7842357Z 
+release	Install Dependencies	2026-09-25T22:28:09.0138774Z 
+release	Install Dependencies	2026-09-25T22:28:09.0139623Z added 825 packages, and audited 969 packages in 31s
+release	Install Dependencies	2026-09-25T22:28:09.0140124Z 
+release	Install Dependencies	2026-09-25T22:28:09.0143091Z 174 packages are looking for funding
+release	Install Dependencies	2026-09-25T22:28:09.0144978Z   run `npm fund` for details
+release	Install Dependencies	2026-09-25T22:28:09.1134527Z 
+release	Install Dependencies	2026-09-25T22:28:09.1139238Z 16 vulnerabilities (2 moderate, 13 high, 1 critical)
+release	Install Dependencies	2026-09-25T22:28:09.1139783Z 
+release	Install Dependencies	2026-09-25T22:28:09.1140173Z To address issues that do not require attention, run:
+release	Install Dependencies	2026-09-25T22:28:09.1140743Z   npm audit fix
+release	Install Dependencies	2026-09-25T22:28:09.1140939Z 
+release	Install Dependencies	2026-09-25T22:28:09.1141296Z To address all issues (including breaking changes), run:
+release	Install Dependencies	2026-09-25T22:28:09.1141866Z   npm audit fix --force
+release	Install Dependencies	2026-09-25T22:28:09.1142139Z 
+release	Install Dependencies	2026-09-25T22:28:09.1142348Z Run `npm audit` for details.
+release	Install Dependencies	2026-09-25T22:28:09.1153672Z npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+release	Install Dependencies	2026-09-25T22:28:09.1154826Z npm warn install-scripts   electron@33.4.11 (postinstall: node install.js)
+release	Install Dependencies	2026-09-25T22:28:09.1155339Z npm warn install-scripts
+release	Install Dependencies	2026-09-25T22:28:09.1156070Z npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+release	Semantic Release	´╗┐2026-09-25T22:28:10.7823906Z ##[group]Run npx semantic-release
+release	Semantic Release	2026-09-25T22:28:10.7824308Z ^[[36;1mnpx semantic-release^[[0m
+release	Semantic Release	2026-09-25T22:28:10.7895212Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+release	Semantic Release	2026-09-25T22:28:10.7895577Z env:
+release	Semantic Release	2026-09-25T22:28:10.7895801Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Semantic Release	2026-09-25T22:28:10.7898678Z   GITHUB_TOKEN: ***
+release	Semantic Release	2026-09-25T22:28:10.7898893Z ##[endgroup]
+release	Semantic Release	2026-09-25T22:28:12.6213095Z [10:28:12 PM] [semantic-release] ┬╗ i  Running semantic-release version 25.0.9
+release	Semantic Release	2026-09-25T22:28:13.2311069Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "verifyConditions" from "@semantic-release/changelog"
+release	Semantic Release	2026-09-25T22:28:13.2313095Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "verifyConditions" from "@semantic-release/npm"
+release	Semantic Release	2026-09-25T22:28:13.2315706Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "verifyConditions" from "@semantic-release/git"
+release	Semantic Release	2026-09-25T22:28:13.2317498Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "verifyConditions" from "@semantic-release/github"
+release	Semantic Release	2026-09-25T22:28:13.2321761Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "analyzeCommits" from "@semantic-release/commit-analyzer"
+release	Semantic Release	2026-09-25T22:28:13.2326250Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "generateNotes" from "@semantic-release/release-notes-generator"
+release	Semantic Release	2026-09-25T22:28:13.2331534Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "prepare" from "@semantic-release/changelog"
+release	Semantic Release	2026-09-25T22:28:13.2333892Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "prepare" from "@semantic-release/npm"
+release	Semantic Release	2026-09-25T22:28:13.2336768Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "prepare" from "@semantic-release/git"
+release	Semantic Release	2026-09-25T22:28:13.2340704Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "publish" from "@semantic-release/npm"
+release	Semantic Release	2026-09-25T22:28:13.2341631Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "publish" from "@semantic-release/github"
+release	Semantic Release	2026-09-25T22:28:13.2344405Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "addChannel" from "@semantic-release/npm"
+release	Semantic Release	2026-09-25T22:28:13.2345229Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "addChannel" from "@semantic-release/github"
+release	Semantic Release	2026-09-25T22:28:13.2348237Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "success" from "@semantic-release/github"
+release	Semantic Release	2026-09-25T22:28:13.2352218Z [10:28:13 PM] [semantic-release] ┬╗ ÔêÜ  Loaded plugin "fail" from "@semantic-release/github"
+release	Semantic Release	2026-09-25T22:28:18.3659752Z [10:28:18 PM] [semantic-release] ┬╗ ÔêÜ  Run automated release from branch develop on repository https://github.com/normaii/picasso
+release	Semantic Release	2026-09-25T22:28:19.5114314Z [10:28:19 PM] [semantic-release] ┬╗ i  The local branch develop is behind the remote one, therefore a new version won't be published.
+release	Build Electron (if new release)	´╗┐2026-09-25T22:28:19.6538728Z ##[group]Run npm run build -- --publish always --config.publish.releaseType=prerelease
+release	Build Electron (if new release)	2026-09-25T22:28:19.6539433Z ^[[36;1mnpm run build -- --publish always --config.publish.releaseType=prerelease^[[0m
+release	Build Electron (if new release)	2026-09-25T22:28:19.6609732Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+release	Build Electron (if new release)	2026-09-25T22:28:19.6610264Z env:
+release	Build Electron (if new release)	2026-09-25T22:28:19.6610472Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Build Electron (if new release)	2026-09-25T22:28:19.6613299Z   GH_TOKEN: ***
+release	Build Electron (if new release)	2026-09-25T22:28:19.6613488Z ##[endgroup]
+release	Build Electron (if new release)	2026-09-25T22:28:20.3831006Z 
+release	Build Electron (if new release)	2026-09-25T22:28:20.3831590Z > picasso@0.1.0-dev.8 build
+release	Build Electron (if new release)	2026-09-25T22:28:20.3832349Z > electron-builder --win --publish always --config.publish.releaseType=prerelease
+release	Build Electron (if new release)	2026-09-25T22:28:20.3832781Z 
+release	Build Electron (if new release)	2026-09-25T22:28:21.1732497Z   ÔÇó electron-builder  version=25.1.8 os=10.0.26100
+release	Build Electron (if new release)	2026-09-25T22:28:21.1779914Z   ÔÇó loaded configuration  file=package.json ("build" field)
+release	Build Electron (if new release)	2026-09-25T22:28:21.3804652Z   ÔÇó executing @electron/rebuild  electronVersion=33.4.11 arch=x64 buildFromSource=false appDir=./
+release	Build Electron (if new release)	2026-09-25T22:28:21.3817351Z   ÔÇó installing native dependencies  arch=x64
+release	Build Electron (if new release)	2026-09-25T22:28:22.2551516Z   ÔÇó completed installing native dependencies
+release	Build Electron (if new release)	2026-09-25T22:28:22.2648123Z   ÔÇó packaging       platform=win32 arch=x64 electron=33.4.11 appOutDir=dist\win-unpacked
+release	Build Electron (if new release)	2026-09-25T22:28:22.3597555Z   ÔÇó downloading     url=https://github.com/electron/electron/releases/download/v33.4.11/electron-v33.4.11-win32-x64.zip size=115 MB parts=8
+release	Build Electron (if new release)	2026-09-25T22:28:22.5888095Z   ÔÇó downloaded      url=https://github.com/electron/electron/releases/download/v33.4.11/electron-v33.4.11-win32-x64.zip duration=307ms
+release	Build Electron (if new release)	2026-09-25T22:28:25.0671833Z   ÔÇó updating asar integrity executable resource  executablePath=dist\win-unpacked\Picasso.exe
+release	Build Electron (if new release)	2026-09-25T22:28:25.2651809Z   ÔÇó downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+release	Build Electron (if new release)	2026-09-25T22:28:25.3106945Z   ÔÇó downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=199ms
+release	Build Electron (if new release)	2026-09-25T22:28:26.0084061Z   ÔÇó signing with signtool.exe  path=dist\win-unpacked\Picasso.exe
+release	Build Electron (if new release)	2026-09-25T22:28:26.0088283Z   ÔÇó no signing info identified, signing is skipped  signHook=false cscInfo=null
+release	Build Electron (if new release)	2026-09-25T22:28:26.0106780Z   ÔÇó building        target=nsis file=dist\Picasso Setup 0.1.0-dev.8.exe archs=x64 oneClick=false perMachine=false
+release	Build Electron (if new release)	2026-09-25T22:28:26.1163584Z   ÔÇó downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z size=1.3 MB parts=1
+release	Build Electron (if new release)	2026-09-25T22:28:26.1392076Z   ÔÇó downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z duration=110ms
+release	Build Electron (if new release)	2026-09-25T22:28:26.5910352Z   ÔÇó signing with signtool.exe  path=dist\win-unpacked\resources\elevate.exe
+release	Build Electron (if new release)	2026-09-25T22:28:26.5911440Z   ÔÇó no signing info identified, signing is skipped  signHook=false cscInfo=null
+release	Build Electron (if new release)	2026-09-25T22:28:53.4235152Z   ÔÇó downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z size=731 kB parts=1
+release	Build Electron (if new release)	2026-09-25T22:28:53.4477494Z   ÔÇó downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z duration=101ms
+release	Build Electron (if new release)	2026-09-25T22:28:54.4928264Z   ÔÇó signing with signtool.exe  path=dist\__uninstaller-nsis-picasso.exe
+release	Build Electron (if new release)	2026-09-25T22:28:54.4929771Z   ÔÇó no signing info identified, signing is skipped  signHook=false cscInfo=null
+release	Build Electron (if new release)	2026-09-25T22:28:55.3941750Z   ÔÇó signing with signtool.exe  path=dist\Picasso Setup 0.1.0-dev.8.exe
+release	Build Electron (if new release)	2026-09-25T22:28:55.3944642Z   ÔÇó no signing info identified, signing is skipped  signHook=false cscInfo=null
+release	Build Electron (if new release)	2026-09-25T22:28:55.3949435Z   ÔÇó building block map  blockMapFile=dist\Picasso Setup 0.1.0-dev.8.exe.blockmap
+release	Build Electron (if new release)	2026-09-25T22:28:56.0693835Z   ÔÇó publishing      publisher=Github (owner: normaii, project: picasso, version: 0.1.0-dev.8)
+release	Build Electron (if new release)	2026-09-25T22:28:56.0728740Z   ÔÇó uploading       file=Picasso-Setup-0.1.0-dev.8.exe.blockmap provider=github
+release	Build Electron (if new release)	2026-09-25T22:28:56.0920962Z   ÔÇó uploading       file=Picasso-Setup-0.1.0-dev.8.exe provider=github
+release	Build Electron (if new release)	2026-09-25T22:28:56.4287430Z   ÔÇó GitHub release not created  reason=existing release published more than 2 hours ago tag=v0.1.0-dev.8 version=0.1.0-dev.8 date=Fri Sep 25 2026 19:51:09 GMT+0000 (Coordinated Universal Time)
+release	Build Electron (if new release)	2026-09-25T22:28:56.4290155Z   ÔÇó skipped publishing  file=Picasso-Setup-0.1.0-dev.8.exe.blockmap reason=existing release published more than 2 hours ago tag=v0.1.0-dev.8 version=0.1.0-dev.8 date=Fri Sep 25 2026 19:51:09 GMT+0000 (Coordinated Universal Time)
+release	Build Electron (if new release)	2026-09-25T22:28:56.4292932Z   ÔÇó skipped publishing  file=Picasso-Setup-0.1.0-dev.8.exe reason=existing release published more than 2 hours ago tag=v0.1.0-dev.8 version=0.1.0-dev.8 date=Fri Sep 25 2026 19:51:09 GMT+0000 (Coordinated Universal Time)
+release	Build Electron (if new release)	2026-09-25T22:28:56.4311329Z   ÔÇó skipped publishing  file=latest.yml reason=existing release published more than 2 hours ago tag=v0.1.0-dev.8 version=0.1.0-dev.8 date=Fri Sep 25 2026 19:51:09 GMT+0000 (Coordinated Universal Time)
+release	Mark release as Draft	´╗┐2026-09-25T22:28:56.4979050Z ##[group]Run $version = node -p "require('./package.json').version"
+release	Mark release as Draft	2026-09-25T22:28:56.4979679Z ^[[36;1m$version = node -p "require('./package.json').version"^[[0m
+release	Mark release as Draft	2026-09-25T22:28:56.4980018Z ^[[36;1m$tag = "v$version"^[[0m
+release	Mark release as Draft	2026-09-25T22:28:56.4980294Z ^[[36;1mWrite-Host "Marking release $tag as draft..."^[[0m
+release	Mark release as Draft	2026-09-25T22:28:56.4980611Z ^[[36;1mgh release edit $tag --draft^[[0m
+release	Mark release as Draft	2026-09-25T22:28:56.5050229Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+release	Mark release as Draft	2026-09-25T22:28:56.5050589Z env:
+release	Mark release as Draft	2026-09-25T22:28:56.5050800Z   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+release	Mark release as Draft	2026-09-25T22:28:56.5053642Z   GH_TOKEN: ***
+release	Mark release as Draft	2026-09-25T22:28:56.5053836Z ##[endgroup]
+release	Mark release as Draft	2026-09-25T22:28:56.9055352Z Marking release v0.1.0-dev.8 as draft...
+release	Mark release as Draft	2026-09-25T22:29:01.1924205Z HTTP 422: Validation Failed (https://api.github.com/repos/normaii/picasso/releases/396885711)
+release	Mark release as Draft	2026-09-25T22:29:01.1925316Z state cannot be changed when release is immutable
+release	Mark release as Draft	2026-09-25T22:29:01.2725414Z ##[error]Process completed with exit code 1.
+release	Post Checkout Code	´╗┐2026-09-25T22:29:01.2990546Z Post job cleanup.
+release	Post Checkout Code	2026-09-25T22:29:01.4903571Z [command]"C:\Program Files\Git\bin\git.exe" version
+release	Post Checkout Code	2026-09-25T22:29:01.5172405Z git version 2.55.0.windows.5
+release	Post Checkout Code	2026-09-25T22:29:01.5231629Z Copying 'C:\Users\runneradmin\.gitconfig' to 'D:\a\_temp\49ab1818-e5b4-4f22-be9f-b3271e2fe824\.gitconfig'
+release	Post Checkout Code	2026-09-25T22:29:01.5252580Z Temporarily overriding HOME='D:\a\_temp\49ab1818-e5b4-4f22-be9f-b3271e2fe824' before making global git config changes
+release	Post Checkout Code	2026-09-25T22:29:01.5253716Z Adding repository directory to the temporary git global config as a safe directory
+release	Post Checkout Code	2026-09-25T22:29:01.5264656Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\picasso\picasso
+release	Post Checkout Code	2026-09-25T22:29:01.5576949Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+release	Post Checkout Code	2026-09-25T22:29:01.5880947Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+release	Post Checkout Code	2026-09-25T22:29:02.1785304Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+release	Post Checkout Code	2026-09-25T22:29:02.2094199Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+release	Post Checkout Code	2026-09-25T22:29:02.7436084Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+release	Post Checkout Code	2026-09-25T22:29:02.7735704Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+release	Complete job	´╗┐2026-09-25T22:29:03.3219099Z Cleaning up orphan processes
+release	Complete job	2026-09-25T22:29:03.3631067Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

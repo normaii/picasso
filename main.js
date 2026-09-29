@@ -6,6 +6,7 @@
 // ============================================================
 
 const { app, BrowserWindow, ipcMain } = require('electron');
+app.commandLine.appendSwitch('disable-ipc-flooding-protection');
 const path = require('path');
 
 // Carrega variáveis de ambiente
