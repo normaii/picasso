@@ -523,252 +523,165 @@ async function iniciarScraping(cookies) {
       else if (scrapingState === 'WAIT_IFRAME_REPORT') {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Aguardando carregamento do relatório para turma ${currentTurma.text}...` });
         
-        const iframePromise = win.webContents.executeJavaScript(`
-          new Promise((resolve) => {
-            const startTime = Date.now();
-            const tMs = ${timeoutMs};
-            
-            let isDone = false;
-            let reportSuccessfullyLoaded = false;
-            let lastReportDoc = null;
-            let extractDebounceTimer = null;
-            let mainObserver = null;
-            let iframeObserver = null;
-            let timeoutTimer = null;
-            let loadHandler = null;
-            let subFrameRef = null;
-            let subFrameLoadHandler = null;
-            let lastFoundId = null;
-
-            const cleanup = () => {
-               if (mainObserver) mainObserver.disconnect();
-               if (iframeObserver) iframeObserver.disconnect();
-               if (timeoutTimer) clearTimeout(timeoutTimer);
-               if (window._emptyTimer) {
-                  clearTimeout(window._emptyTimer);
-                  window._emptyTimer = null;
-               }
-               if (extractDebounceTimer) {
-                  clearTimeout(extractDebounceTimer);
-                  extractDebounceTimer = null;
-               }
-               if (window._pollTimer) {
-                  clearInterval(window._pollTimer);
-                  window._pollTimer = null;
-               }
-               if (loadHandler) {
-                 document.body.removeEventListener('load', loadHandler, true);
-               }
-               if (subFrameRef && subFrameLoadHandler) {
-                 subFrameRef.removeEventListener('load', subFrameLoadHandler);
-               }
-            };
-
-            const finish = (result) => {
-               if (!isDone) {
-                  isDone = true;
-                  cleanup();
-                  resolve(result);
-               }
-            };
-            
-            window._pollTimer = setInterval(() => {
-               if (!isDone) tryExtract();
-            }, 1000);
-
-
-            timeoutTimer = setTimeout(() => {
-               let fallbackHtml = '';
-               try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
-               if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
-               } else {
-                  finish({ error: 'iframe_not_found_timeout', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
-               }
-            }, tMs);
-
-            const isVisible = (el) => {
-              if (!el) return false;
-              const style = el.ownerDocument && el.ownerDocument.defaultView
-                ? el.ownerDocument.defaultView.getComputedStyle(el)
-                : null;
-              if (!style) return true;
-              return style.display !== 'none' && style.visibility !== 'hidden';
-            };
-
-            const getViewerLoadingState = () => {
-              try {
-                if (typeof $find !== 'function') return null;
-                const viewer = $find('rptViewer');
-                if (!viewer || typeof viewer.get_isLoading !== 'function') return null;
-                return viewer.get_isLoading();
-              } catch (e) {
-                return null;
-              }
-            };
-
-            const tryExtractDebounced = () => {
-               if (extractDebounceTimer) clearTimeout(extractDebounceTimer);
-               extractDebounceTimer = setTimeout(tryExtract, 100);
-            };
-
-            const tryExtract = () => {
-              if (isDone) return;
-              
-              if (window._emptyTimer) {
-                 clearTimeout(window._emptyTimer);
-                 window._emptyTimer = null;
-              }
-              
-              try {
-                const possibleIds = [
-                  'rptViewer_ReportFrame',
-                  'ReportFramerptViewer',
-                  'rptViewer_ctl00_ReportFrame'
-                ];
-                
-                let iframe = null;
-                let foundId = '';
-                
-                for (const id of possibleIds) {
-                  const el = document.getElementById(id);
-                  if (el) { iframe = el; foundId = id; break; }
-                }
-                
-                if (!iframe) {
-                  const allIframes = document.querySelectorAll('iframe, frame');
-                  for (const f of allIframes) {
-                    const src = f.src || f.getAttribute('src') || '';
-                    if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
-                      iframe = f;
-                      foundId = f.id || '(sem id)';
-                      break;
+        let iframeState = null;
+        const startTime = Date.now();
+        const markerKey = (currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val;
+        
+        while (!isCancelled()) {
+           if (win.isDestroyed()) { iframeState = { error: 'destroyed' }; break; }
+           if (Date.now() - startTime > timeoutMs) { iframeState = { error: 'iframe_not_found_timeout' }; break; }
+           
+           const extractResult = await win.webContents.executeJavaScript(`
+              (() => {
+                 try {
+                    const possibleIds = [
+                      'rptViewer_ReportFrame',
+                      'ReportFramerptViewer',
+                      'rptViewer_ctl00_ReportFrame'
+                    ];
+                    
+                    let iframe = null;
+                    let foundId = '';
+                    
+                    for (const id of possibleIds) {
+                      const el = document.getElementById(id);
+                      if (el) { iframe = el; foundId = id; break; }
                     }
-                  }
-                }
-                
-                if (foundId) lastFoundId = foundId;
-                
-                if (!iframe) { console.log('[Scraper-DOM] Iframe não encontrado.'); return; }
-                
-                let doc = null;
-                try { doc = iframe.contentDocument; } catch(e) { }
-                if (!doc || !doc.body) { console.log('[Scraper-DOM] doc ou doc.body inacessível.'); return; }
-                const reportRootDoc = doc;
-
-                // SSRS pode ter um sub-frame "report" dentro do frameset principal
-                try {
-                  const subFrame = doc.getElementById('report');
-                  if (subFrame) {
-                     if (subFrameRef !== subFrame) {
-                        if (subFrameRef && subFrameLoadHandler) {
-                           subFrameRef.removeEventListener('load', subFrameLoadHandler);
+                    
+                    if (!iframe) {
+                      const allIframes = document.querySelectorAll('iframe, frame');
+                      for (const f of allIframes) {
+                        const src = f.src || f.getAttribute('src') || '';
+                        if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
+                          iframe = f;
+                          foundId = f.id || '(sem id)';
+                          break;
                         }
-                        subFrameRef = subFrame;
-                        subFrameLoadHandler = tryExtract;
-                        subFrame.addEventListener('load', subFrameLoadHandler);
-                     }
-                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) { console.log('[Scraper-DOM] subFrame doc inacessível.'); return; }
-                     doc = subFrame.contentDocument;
-                  }
-                } catch(e) { }
+                      }
+                    }
+                    
+                    if (!iframe) return { status: 'waiting', msg: 'Iframe não encontrado.' };
+                    
+                    let doc = null;
+                    try { doc = iframe.contentDocument; } catch(e) { }
+                    if (!doc || !doc.body) return { status: 'waiting', msg: 'doc ou doc.body inacessível.' };
+                    
+                    try {
+                      const subFrame = doc.getElementById('report');
+                      if (subFrame && subFrame.contentDocument && subFrame.contentDocument.body) {
+                         doc = subFrame.contentDocument;
+                      }
+                    } catch(e) { }
+                    
+                    const scrapedVal = doc.body.getAttribute('data-scraped-turma');
+                    if (scrapedVal === "${markerKey}") return { status: 'waiting', msg: 'Turma já extraída no DOM (marker matched).' };
 
-                lastReportDoc = doc;
-                
-                const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
-                const scrapedVal = doc.body.getAttribute('data-scraped-turma');
-                if (scrapedVal === markerKey) { console.log('[Scraper-DOM] Turma já extraída no DOM (marker matched).'); return; }
+                    if (doc.readyState !== 'complete') return { status: 'waiting', msg: 'readyState não é complete.' };
 
-                if (!iframeObserver || iframeObserver.doc !== doc) {
-                   if (iframeObserver) iframeObserver.disconnect();
-                   iframeObserver = new MutationObserver(tryExtractDebounced);
-                   iframeObserver.doc = doc;
-                   iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
-                }
+                    try {
+                       if (typeof $find === 'function') {
+                          const viewer = $find('rptViewer');
+                          if (viewer && typeof viewer.get_isLoading === 'function' && viewer.get_isLoading()) {
+                             return { status: 'waiting', msg: 'viewer.get_isLoading() é true.' };
+                          }
+                       }
+                    } catch(e) {}
+                    
+                    const isVisible = (el) => {
+                      if (!el) return false;
+                      const style = el.ownerDocument && el.ownerDocument.defaultView ? el.ownerDocument.defaultView.getComputedStyle(el) : null;
+                      if (!style) return true;
+                      return style.display !== 'none' && style.visibility !== 'hidden';
+                    };
+                    
+                    const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                    if (isVisible(waitPanel)) return { status: 'waiting', msg: 'waitPanel está visível.' };
 
-                if (doc.readyState !== 'complete') { console.log('[Scraper-DOM] readyState não é complete.'); return; }
+                    const allTables = Array.from(doc.querySelectorAll('table'));
+                    if (allTables.length === 0) return { status: 'waiting', msg: 'Nenhuma tabela encontrada no doc.' };
+                    
+                    const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
+                    if (newTables.length === 0) return { status: 'waiting', msg: 'Todas as tabelas são velhas (data-old-report).' };
 
-                const viewerLoadingState = getViewerLoadingState();
-                if (viewerLoadingState === true) { console.log('[Scraper-DOM] viewer.get_isLoading() é true.'); return; }
-                
-                const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(waitPanel)) { console.log('[Scraper-DOM] waitPanel está visível.'); return; }
-
-                const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(outerWaitPanel)) { console.log('[Scraper-DOM] outerWaitPanel está visível.'); return; }
-
-                const allTables = Array.from(doc.querySelectorAll('table'));
-                if (allTables.length === 0) { console.log('[Scraper-DOM] Nenhuma tabela encontrada no doc.'); return; }
-                
-                const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
-                if (newTables.length === 0) { console.log('[Scraper-DOM] Todas as tabelas são velhas (data-old-report).'); return; }
-
-                console.log('[Scraper-DOM] Tabelas novas encontradas! Processando trs...');
-                reportSuccessfullyLoaded = true;
-
-                const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
-                const uniqueTrs = Array.from(new Set(rawTrs));
-                const trs = uniqueTrs.filter(tr => {
-                  const tds = tr.querySelectorAll('td');
-                  if (tds.length < 4) return false;
-                  return /^\\d{10,}$/.test(tds[0].innerText.trim());
-                });
-                
-                if (trs.length === 0) {
-                   console.log('[Scraper-DOM] 0 linhas de aluno encontradas. Iniciando emptyTimer...');
-                   window._emptyTimer = setTimeout(() => {
-                      window._emptyTimer = null;
-                      let fallbackHtml = '';
-                      try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
-                      finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId });
-                   }, 2000); // 2 segundos curtos de tolerância, reiniciados a cada mutação
-                   return; 
-                }
-                
-                const markerKey2 = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
-                doc.body.setAttribute('data-scraped-turma', markerKey2);
-                
-                const alunos = [];
-                trs.forEach(tr => {
-                  const tds = tr.querySelectorAll('td');
-                  const matricula = tds[0].innerText.trim();
-                  const nome = tds[1].innerText.trim();
-                  if (nome && matricula) {
-                    alunos.push({ nome, matricula, turma_nome: ${JSON.stringify(currentTurma.text)} });
-                  }
-                });
-                
-                finish({ error: null, alunos, foundId: foundId });
-              } catch (e) {
-                 // Ignore errors during check, as DOM might be in flux
+                    const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
+                    const uniqueTrs = Array.from(new Set(rawTrs));
+                    const trs = uniqueTrs.filter(tr => {
+                      const tds = tr.querySelectorAll('td');
+                      if (tds.length < 4) return false;
+                      return /^\\d{10,}$/.test(tds[0].innerText.trim());
+                    });
+                    
+                    if (trs.length === 0) {
+                       return { status: 'empty', foundId };
+                    }
+                    
+                    doc.body.setAttribute('data-scraped-turma', "${markerKey}");
+                    
+                    const alunos = [];
+                    trs.forEach(tr => {
+                      const tds = tr.querySelectorAll('td');
+                      const matricula = tds[0].innerText.trim();
+                      const nome = tds[1].innerText.trim();
+                      if (nome && matricula) {
+                        alunos.push({ nome, matricula, turma_nome: "${currentTurma.text}" });
+                      }
+                    });
+                    
+                    return { status: 'success', alunos, foundId };
+                 } catch (e) {
+                    return { status: 'waiting', msg: 'Erro: ' + e.message };
+                 }
+              })()
+           `).catch(e => ({ status: 'waiting', msg: 'ExecuteScript Error: ' + e.message }));
+           
+           if (extractResult && extractResult.status === 'success') {
+              iframeState = { error: null, alunos: extractResult.alunos, foundId: extractResult.foundId };
+              break;
+           } else if (extractResult && extractResult.status === 'empty') {
+              // Wait 2 extra seconds to see if it's just rendering
+              await delay(2000);
+              const recheck = await win.webContents.executeJavaScript(`
+                 (() => {
+                    try {
+                       const doc = document.getElementById('${extractResult.foundId}').contentDocument;
+                       const allTables = Array.from(doc.querySelectorAll('table')).filter(t => !t.hasAttribute('data-old-report'));
+                       const trs = allTables.flatMap(t => Array.from(t.querySelectorAll('tr'))).filter(tr => {
+                         const tds = tr.querySelectorAll('td');
+                         return tds.length >= 4 && /^\\d{10,}$/.test(tds[0].innerText.trim());
+                       });
+                       if (trs.length > 0) {
+                          doc.body.setAttribute('data-scraped-turma', "${markerKey}");
+                          const alunos = [];
+                          trs.forEach(tr => {
+                            const tds = tr.querySelectorAll('td');
+                            const matricula = tds[0].innerText.trim();
+                            const nome = tds[1].innerText.trim();
+                            if (nome && matricula) alunos.push({ nome, matricula, turma_nome: "${currentTurma.text}" });
+                          });
+                          return { status: 'success', alunos, foundId: '${extractResult.foundId}' };
+                       }
+                    } catch(e) {}
+                    return { status: 'empty' };
+                 })()
+              `).catch(() => ({ status: 'empty' }));
+              
+              if (recheck && recheck.status === 'success') {
+                 iframeState = { error: null, alunos: recheck.alunos, foundId: recheck.foundId };
+              } else {
+                 iframeState = { error: 'table_not_found', html: '', foundId: extractResult.foundId };
               }
-            };
-
-            mainObserver = new MutationObserver(tryExtractDebounced);
-            mainObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-            loadHandler = (e) => {
-               if (e.target && (e.target.tagName === 'IFRAME' || e.target.tagName === 'FRAME')) {
-                  tryExtract();
-               }
-            };
-            document.body.addEventListener('load', loadHandler, true);
-
-            tryExtract();
-          })
-        `);
-
-        let isRaceDone = false;
-        const cancelPoll = async () => {
-          while (!isCancelled() && !isRaceDone) { await delay(1000); }
-          return { error: 'cancelled' };
-        };
-
-        let iframeState;
-        try {
-           iframeState = await Promise.race([ iframePromise, cancelPoll() ]);
-        } finally {
-           isRaceDone = true;
+              break;
+           }
+           
+           if (extractResult && extractResult.msg) {
+              console.log('[Scraper-DOM] ' + extractResult.msg);
+           }
+           
+           await delay(1000);
+        }
+        
+        if (isCancelled()) {
+           iframeState = { error: 'cancelled' };
         }
 
         if (iframeState.error === 'table_not_found') {
