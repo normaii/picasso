@@ -462,9 +462,12 @@ async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = n
     throw new Error('Já existe um processo de download de fotos em andamento.');
   }
 
+  // Reservar imediatamente de forma síncrona para evitar race condition com Arquivamento
+  fetchStatus.status = 'em_andamento';
   cancelRequested = false;
 
-  // Aplica cookies na sessão default se fornecidos
+  try {
+    // Aplica cookies na sessão default se fornecidos
   if (cookies && Array.isArray(cookies)) {
     for (const cookie of cookies) {
       try {
@@ -494,9 +497,8 @@ async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = n
     return fetchStatus;
   }
 
-  // 2. Prepara estado
-  fetchStatus = {
-    status: 'em_andamento',
+  // 2. Atualiza estado
+  Object.assign(fetchStatus, {
     total: alunosPendentes.length,
     processados: 0,
     comFoto: 0,
@@ -506,7 +508,7 @@ async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = n
     alunoAtual: null,
     mensagem: `Iniciando download de fotos (${alunosPendentes.length} alunos)...`,
     logs: []
-  };
+  });
 
   const defaultAvatarPath = getOrCopyDefaultAvatar();
   const fotosDir = getFotosDir();
@@ -548,6 +550,12 @@ async function iniciarDownloadFotos({ turma = null, concurrency = 2, cookies = n
       fetchStatus.mensagem = `Erro no processamento das fotos: ${err.message}`;
       addLog(fetchStatus.mensagem, true);
     });
+
+  } catch (err) {
+    fetchStatus.status = 'erro';
+    fetchStatus.mensagem = `Erro de inicialização: ${err.message}`;
+    return fetchStatus;
+  }
 
   return fetchStatus;
 }
