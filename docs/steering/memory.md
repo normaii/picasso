@@ -329,6 +329,7 @@ flowchart TD
 | PIC-2 | Configurações Multi-escola | ✅ Aceito | [PIC-2.md](ADR/PIC-2.md) |
 | PIC-28| Mitigação de XSS e Validação | ✅ Aceito | [PIC-28.md](ADR/PIC-28.md) |
 | PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito | [PIC-3.md](ADR/PIC-3.md) |
+| PIC-107| Restauração da Espera Reativa (Anti-Hang SSRS) | ✅ Aceito | [PIC-107.md](ADR/PIC-107.md) |
 
 ### Backlog de decisões futuras
 
@@ -351,6 +352,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-09-29 | PIC-107: Resolvido travamento silencioso (hang) causado por Full Postback do SSRS ao clicar em "View Report", que gerava Promessas órfãs. A injeção de \`Promise\` no Chromium foi totalmente substituída por um polling reativo puro rodando isolado no Node.js. |
 | 2026-09-25 | PIC-13 Finalizado: ADR atualizado com a arquitetura completa de Reatividade e mitigação de Stale Data nos Dropdowns. Seção 3.2 atualizada. |
 | 2026-09-25 | PIC-3 V10: saveDb() Windows-safe (fallback copy+unlink), guard isArchiving na rota real `/api/pdf/gerar`, rmSync falha retorna success:false, ADR e Memory atualizados. |
 | 2026-09-25 | PIC-3: Adicionada seção 3.6 (Módulo de Arquivamento e Expurgo LGPD). ADR atualizado com decisões de confiabilidade (V6-V9) e backlog diferido. |
