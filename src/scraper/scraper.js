@@ -41,204 +41,64 @@ async function waitAspNetReady(win, actionScript = '', readyCondition = null) {
   const parsed = Number(raw);
   const timeoutMs = (raw !== '' && Number.isInteger(parsed) && parsed > 0) ? parsed * 1000 : 60000;
 
-  try {
-    const waitPromise = win.webContents.executeJavaScript(`
-      new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        console.log('[Scraper-DOM] Preparando ação atômica e aguardando postback...');
-
-        let isDone = false;
-        let endRequestHandler = null;
-        let beginRequestHandler = null;
-        let prm = null;
-        let observer = null;
-
-        const cleanup = () => {
-          if (observer) observer.disconnect();
-          if (prm) {
-            if (beginRequestHandler) {
-              try { prm.remove_beginRequest(beginRequestHandler); } catch(e) {}
-            }
-            if (endRequestHandler) {
-              try { prm.remove_endRequest(endRequestHandler); } catch(e) {}
-            }
-          }
-        };
-
-        const timeoutTimer = setTimeout(() => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            console.error('[Scraper-DOM] Timeout de rede atingido após ' + (Date.now() - startTime) + 'ms');
-            reject(new Error('Network Timeout'));
-          }
-        }, ${timeoutMs});
-
-        const finish = (msg) => {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            clearTimeout(timeoutTimer);
-            const duration = Date.now() - startTime;
-            console.log('[Scraper-DOM] Operação assíncrona concluída [' + (msg || 'Ready') + '] em ' + duration + 'ms');
-            resolve(true);
-          }
-        };
-
-        // Verifica se o DOM já está limpo
-        const checkReady = () => {
-          try {
-            if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-              if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) return false;
-            }
-            const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
-            if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
-            
-            // Nova checagem customizada
-            if (${readyCondition ? 'true' : 'false'}) {
-               const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
-               if (!conditionMet) return false;
-               return 'Custom ReadyCondition Met';
-            }
-            return 'Default ASP.NET Ready';
-          } catch(e) { return false; }
-        };
-
-        const hasAction = ${actionScript ? 'true' : 'false'};
-        let sawBeginRequest = false;
-        let hasPRM = false;
-
-        // Escuta eventos do ASP.NET
-        if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
-           hasPRM = true;
-           prm = Sys.WebForms.PageRequestManager.getInstance();
-           // Observa o início do postback para saber que a ação realmente disparou
-           beginRequestHandler = () => { sawBeginRequest = true; };
-           prm.add_beginRequest(beginRequestHandler);
-           endRequestHandler = () => { 
-              if (hasAction && hasPRM && !sawBeginRequest) return;
-              const msg = checkReady();
-              if (msg) finish(msg); 
-           };
-           prm.add_endRequest(endRequestHandler);
-        }
-
-        // Escuta mutações no DOM (UpdateProgress)
-        observer = new MutationObserver(() => {
-           // Se há ação E temos PRM, só pode resolver após observar o beginRequest
-           if (hasAction && hasPRM && !sawBeginRequest) return;
-           const msg = checkReady();
-           if (msg) { finish(msg); }
-        });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-        // Executa a ação injetada
-        try {
-          ${actionScript || '/* Apenas aguarda carregamento inicial */'}
-        } catch(e) {
-          if (!isDone) {
-            isDone = true;
-            cleanup();
-            clearTimeout(timeoutTimer);
-            reject(new Error('Erro na ação injetada: ' + e.message));
-          }
-        }
-
-        // Fallback: se NÃO há ação, verifica readiness imediatamente no próximo tick
-        if (!hasAction) {
-          setTimeout(() => {
-             if (!isDone) {
-                const msg = checkReady();
-                if (msg) { finish(msg); }
-             }
-          }, 100);
-        }
-        // Se há ação que cause postback parcial, os listeners do PageRequestManager cuidam.
-        // Se a ação causar full postback, o contexto será destruído e trataremos no Node.js.
-      })
-    `);
-
-    let isRaceDone = false;
-    const cancelPoll = async () => {
-      while (!isCancelled() && !isRaceDone) { await delay(500); }
-      return { cancelled: true };
-    };
-
-    let result;
-    try {
+  if (actionScript) {
+    await win.webContents.executeJavaScript(`
       try {
-        result = await Promise.race([ waitPromise, cancelPoll() ]);
-      } catch (err) {
-        if (err.message && (err.message.includes('Execution context was destroyed') || err.message.includes('Inspected target navigated') || err.message.includes('Script failed to execute') || err.message.includes('this world has been destroyed'))) {
-           log('Full postback detectado (contexto destruído). Aguardando did-finish-load do BrowserWindow...');
-           
-           let timeoutTimer;
-           let onFinishLoad;
-           
-           const doCheckReady = async () => {
-              if (readyCondition) {
-                 return await win.webContents.executeJavaScript(`
-                     new Promise((res, rej) => {
-                        let observer;
-                        const cleanup = () => {
-                           if (observer) observer.disconnect();
-                           clearTimeout(failTimer);
-                        };
-                        const check = () => {
-                           try {
-                              const met = new Function(${JSON.stringify(readyCondition)})();
-                              if (met) { cleanup(); res(true); }
-                           } catch(e) {}
-                        };
-                        observer = new MutationObserver(check);
-                        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-                        const failTimer = setTimeout(() => { cleanup(); rej(new Error('Network Timeout (Ready Condition)')); }, ${timeoutMs});
-                        check();
-                     })
-                 `);
-              }
-              return true;
-           };
-
-           const fallbackPromise = new Promise((resolve, reject) => {
-              timeoutTimer = setTimeout(() => reject(new Error('Network Timeout (Full Postback)')), timeoutMs);
-              onFinishLoad = async () => {
-                 try {
-                    await doCheckReady();
-                    log('[Scraper-DOM] Operação assíncrona concluída [' + (readyCondition ? 'Custom ReadyCondition Met' : 'Default ASP.NET Ready') + '] após Full Postback');
-                    resolve(true);
-                 } catch (e) { reject(e); }
-              };
-              
-              if (!win.webContents.isLoading()) {
-                 onFinishLoad();
-              } else {
-                 win.webContents.once('did-finish-load', onFinishLoad);
-              }
-           });
-           
-           try {
-              result = await Promise.race([ fallbackPromise, cancelPoll() ]);
-           } finally {
-              clearTimeout(timeoutTimer);
-              if (onFinishLoad) win.webContents.removeListener('did-finish-load', onFinishLoad);
-           }
-        } else {
-           throw err; // Propaga os timeouts corretamente ao invés de ignorar!
-        }
+        ${actionScript}
+      } catch(e) {
+        console.error('[Scraper-DOM] Erro no actionScript:', e);
       }
-    } finally {
-      isRaceDone = true;
-    }
-    
-    if (result && result.cancelled) {
-      throw new Error('Sincronização cancelada pelo usuário.');
-    }
-    
-    return true;
-  } catch (err) {
-    throw err;
+    `);
   }
+
+  const checkState = async () => {
+    return await win.webContents.executeJavaScript(`
+      (() => {
+        try {
+          if (typeof Sys !== 'undefined' && Sys.WebForms && Sys.WebForms.PageRequestManager) {
+            if (Sys.WebForms.PageRequestManager.getInstance().get_isInAsyncPostBack()) return false;
+          }
+          const updateProgress = document.getElementById('UpdateProgress1') || document.querySelector('[id*="UpdateProgress"]');
+          if (updateProgress && updateProgress.style.display !== 'none' && updateProgress.style.visibility !== 'hidden') return false;
+
+          if (${readyCondition ? 'true' : 'false'}) {
+            const conditionMet = new Function(${JSON.stringify(readyCondition || '')})();
+            if (!conditionMet) return false;
+          }
+          return true;
+        } catch(e) { return false; }
+      })()
+    `);
+  };
+
+  let timerId = null;
+  const timeoutPromise = new Promise(resolve => {
+    timerId = setTimeout(() => {
+      resolve({ error: 'timeout' });
+    }, timeoutMs);
+  });
+
+  const pollPromise = (async () => {
+    let isRaceDone = false;
+    while (!isCancelled() && !isRaceDone) {
+      if (win.isDestroyed()) return { error: 'destroyed' };
+      if (await checkState()) {
+        isRaceDone = true;
+        clearTimeout(timerId);
+        return { success: true };
+      }
+      await delay(1000);
+    }
+    return { error: 'cancelled' };
+  })();
+
+  const result = await Promise.race([pollPromise, timeoutPromise]);
+  if (result.error) {
+    if (result.error === 'timeout') throw new Error('Timeout de rede atingido (waitAspNetReady).');
+    if (result.error === 'destroyed') throw new Error('WebContents destruído durante a espera.');
+    if (result.error === 'cancelled') throw new Error('Sincronização cancelada pelo usuário.');
+  }
+  return true;
 }
 
 let isScrapingRunning = false;
@@ -261,11 +121,62 @@ async function iniciarScraping(cookies) {
     log('Iniciando scraping com BrowserWindow invisível...');
     
     win = new BrowserWindow({
-      show: false,
+      show: true,
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: false
       }
+    });
+    win.webContents.openDevTools();
+
+    // ==================================================
+    // PATCH SSRS INFINITE LOOP
+    // ==================================================
+    // SSRS injects an iframe with `onload="if (location != 'javascript:\'\'') location.replace('javascript:\'\'');"`.
+    // Modern Chromium normalizes `javascript:''` to `about:blank`, making the condition always TRUE.
+    // This causes an infinite reload loop, which triggers Chromium's IPC Flooding Protection and freezes the page.
+    // We inject a MutationObserver globally to nuke this `onload` attribute instantly.
+    win.webContents.on('did-finish-load', () => {
+      win.webContents.executeJavaScript(`
+        if (!window._ssrsPatchApplied) {
+           window._ssrsPatchApplied = true;
+           
+           // Nuke iframes already in the DOM
+           const nukeBuggyIframes = () => {
+             document.querySelectorAll('iframe[id*="rptViewerTouchSession"]').forEach(f => {
+                if (f.hasAttribute('onload')) {
+                   f.removeAttribute('onload');
+                   console.log('[Scraper-DOM] Nucked buggy onload from SSRS session iframe');
+                }
+             });
+           };
+           nukeBuggyIframes();
+           
+           // Monkey-patch XHR to strip the buggy onload from ASP.NET UpdatePanel responses BEFORE they hit the DOM!
+           const origXhrOpen = XMLHttpRequest.prototype.open;
+           XMLHttpRequest.prototype.open = function() {
+              this.addEventListener('readystatechange', function() {
+                 if (this.readyState === 4 && this.responseText) {
+                    try {
+                       // O SSRS manda o iframe dentro da string do UpdatePanel.
+                       // Vamos interceptar o responseText usando Object.defineProperty no objeto XHR atual.
+                       const originalText = this.responseText;
+                       if (originalText.includes('rptViewerTouchSession')) {
+                          const safeText = originalText.replace(/onload="if \\(frames\\['rptViewerTouchSession\\d+'\\]\\.location[^>]+"/g, '');
+                          if (safeText !== originalText) {
+                             Object.defineProperty(this, 'responseText', { value: safeText });
+                             console.log('[Scraper-DOM] XHR Patch: Buggy SSRS onload stripped from AJAX response!');
+                          }
+                       }
+                    } catch(e) {}
+                 }
+              });
+              origXhrOpen.apply(this, arguments);
+           };
+           
+           new MutationObserver(nukeBuggyIframes).observe(document.documentElement, { childList: true, subtree: true });
+        }
+      `).catch(() => {});
     });
 
     win.webContents.on('console-message', (event, levelOrDetails, messageText) => {
@@ -287,7 +198,7 @@ async function iniciarScraping(cookies) {
 
     let isLoadRaceDone = false;
     const cancelLoadPoll = async () => {
-      while (!isCancelled() && !isLoadRaceDone) { await delay(500); }
+      while (!isCancelled() && !isLoadRaceDone) { await delay(1000); }
       return { error: 'cancelled' };
     };
 
@@ -389,19 +300,26 @@ async function iniciarScraping(cookies) {
               const escOpts = getOpts(escId);
               const anoOpts = getOpts(anoId);
               
+              const stateLog = {
+                regOpts: regOpts.length, regVal: getVal(regId),
+                munOpts: munOpts.length, munVal: getVal(munId),
+                escOpts: escOpts.length, escVal: getVal(escId)
+              };
+              console.log('[Scraper-DOM] Avaliando estado:', JSON.stringify(stateLog));
+
               const regCurrent = regOpts.find(o => o.val === getVal(regId));
-              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts), nextId: munId };
+              if (!isValidOpt(regCurrent)) return { action: 'select', id: regId, opt: pickFirst(regOpts), nextId: munId, debug: stateLog };
               
               const munCurrent = munOpts.find(o => o.val === getVal(munId));
-              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts), nextId: escId };
+              if (!isValidOpt(munCurrent)) return { action: 'select', id: munId, opt: pickFirst(munOpts), nextId: escId, debug: stateLog };
               
               const escCurrent = escOpts.find(o => o.val === getVal(escId));
-              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId };
+              if (!isValidOpt(escCurrent)) return { action: 'select', id: escId, opt: pickFirst(escOpts), nextId: anoId, debug: stateLog };
               
               const anoCurrent = anoOpts.find(o => o.val === getVal(anoId));
-              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: 'rptViewer_ctl00_ctl11_ddValue' };
+              if (!isValidOpt(anoCurrent)) return { action: 'select', id: anoId, opt: pickFirst(anoOpts), nextId: 'rptViewer_ctl00_ctl11_ddValue', debug: stateLog };
               
-              return { action: 'done' };
+              return { action: 'done', debug: stateLog };
             } catch (e) {
               return { error: e.message };
             }
@@ -411,13 +329,18 @@ async function iniciarScraping(cookies) {
         if (setupState.error) {
           throw new Error('Erro injetando scripts de setup: ' + setupState.error);
         }
+        
+        log(`[Debug] SetupState resolveu: ${JSON.stringify(setupState)}`);
+        try {
+          const debugLogPath = path.join(require('electron').app.getPath('userData'), 'data', 'debug_scraper_loop.txt');
+          fs.appendFileSync(debugLogPath, `[${new Date().toISOString()}] SetupState resolveu: ${JSON.stringify(setupState)}\n`, 'utf-8');
+        } catch(e) {}
 
         if (setupState.action === 'select') {
           if (!setupState.opt) {
-            // Dropdown dependente pode estar vazio porque o anterior ainda não populou — aguarda ao invés de abortar
             log(`Dropdown ${setupState.id} vazio, aguardando repopulação via postback...`);
             await waitAspNetReady(win, '', `return (() => { const el = document.getElementById('${setupState.id}'); if (!el) return false; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
-            continue; // Re-avalia o SETUP_FILTERS com o dropdown agora populado
+            continue; 
           }
           
           const label = FIELD_NAMES[setupState.id] || setupState.id;
@@ -425,16 +348,19 @@ async function iniciarScraping(cookies) {
           log(`${label}: ${setupState.opt.text} ✔`);
           atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${label}: ${setupState.opt.text} selecionado(a).` });
           
-          // Seleciona e dispara o change, depois aguarda que o PRÓXIMO dropdown dependente seja populado
           const nextDropdownId = setupState.nextId || null;
-          const readyCond = nextDropdownId
-            ? `return (() => { const el = document.getElementById('${nextDropdownId}'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`
-            : null;
+          const readyCond = nextDropdownId ? `return (() => { 
+            const el = document.getElementById('${nextDropdownId}');
+            if (!el) return true;
+            const opts = Array.from(el.options);
+            return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE'));
+          })()` : null;
           
           await waitAspNetReady(win, `
             const nextEl = document.getElementById('${nextDropdownId}');
             if (nextEl) { nextEl.innerHTML = ''; }
             const el = document.getElementById('${setupState.id}');
+            console.log('[Scraper-DOM] Disparando change em ${setupState.id} para valor', ${JSON.stringify(setupState.opt.val)});
             el.value = ${JSON.stringify(setupState.opt.val)};
             el.dispatchEvent(new Event('change', { bubbles: true }));
           `, readyCond);
@@ -452,7 +378,7 @@ async function iniciarScraping(cookies) {
         const fetchSem = await win.webContents.executeJavaScript(`
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
-            if (!el) return { error: 'Dropdown semestre não encontrado.' };
+            if (!el) return { sems: [] };
             const isValid = (t) => {
               const upper = t.toUpperCase();
               return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
@@ -467,6 +393,13 @@ async function iniciarScraping(cookies) {
         if (fetchSem.error) throw new Error(fetchSem.error);
         
         semestresToScrape = fetchSem.sems;
+        if (semestresToScrape.length === 0) {
+           log('Nenhum semestre válido encontrado. Finalizando...');
+           atualizarLogScraping(logId, { status: 'concluido', mensagem: 'Nenhum semestre/dado encontrado para os filtros selecionados.' });
+           scrapingState = 'DONE';
+           continue;
+        }
+        
         log(`Encontrados ${semestresToScrape.length} semestres válidos.`);
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `${semestresToScrape.length} semestres encontrados.` });
         scrapingState = 'SELECT_SEMESTRE';
@@ -489,10 +422,16 @@ async function iniciarScraping(cookies) {
         await waitAspNetReady(win, `
           const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
           if (nextEl) { nextEl.innerHTML = ''; }
+
           const el = document.getElementById('rptViewer_ctl00_ctl11_ddValue');
           el.value = ${JSON.stringify(currentSemestre.val)};
           el.dispatchEvent(new Event('change', { bubbles: true }));
-        `, `return (() => { const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue'); if (!el) return true; const opts = Array.from(el.options); return opts.some(o => o.value !== '0' && !o.text.toUpperCase().includes('SELECT') && !o.text.toUpperCase().includes('SELECIONE')); })()`);
+        `, `
+          return (() => { 
+             const nextEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+             return nextEl && nextEl.options.length > 0;
+          })();
+        `);
         scrapingState = 'FETCH_TURMAS';
       }
 
@@ -503,7 +442,7 @@ async function iniciarScraping(cookies) {
         const fetchTur = await win.webContents.executeJavaScript(`
           (() => {
             const el = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
-            if (!el) return { error: 'Dropdown turma não encontrado.' };
+            if (!el) return { turmas: [] };
             const isValid = (t) => {
               const upper = t.toUpperCase();
               return !(upper.includes('SELECT') || upper.includes('SELECIONE'));
@@ -564,8 +503,18 @@ async function iniciarScraping(cookies) {
              });
           } catch(e) {}
 
-          document.getElementById('rptViewer_ctl00_ctl13_ddValue').value = ${JSON.stringify(currentTurma.val)};
-          document.getElementById('rptViewer_ctl00_ctl00').click();
+          const turmaEl = document.getElementById('rptViewer_ctl00_ctl13_ddValue');
+          if (turmaEl) {
+             turmaEl.value = ${JSON.stringify(currentTurma.val)};
+          }
+          
+          setTimeout(() => {
+             const btn = document.getElementById('rptViewer_ctl00_ctl00');
+             if (btn) {
+                console.log('[Scraper-DOM] Clicando no botão View Report...');
+                btn.click();
+             }
+          }, 500);
         `);
         
         scrapingState = 'WAIT_IFRAME_REPORT';
@@ -574,248 +523,165 @@ async function iniciarScraping(cookies) {
       else if (scrapingState === 'WAIT_IFRAME_REPORT') {
         atualizarLogScraping(logId, { status: 'extraindo_dados', mensagem: `Aguardando carregamento do relatório para turma ${currentTurma.text}...` });
         
-        const iframePromise = win.webContents.executeJavaScript(`
-          new Promise((resolve) => {
-            const startTime = Date.now();
-            const tMs = ${timeoutMs};
-            
-            let isDone = false;
-            let reportSuccessfullyLoaded = false;
-            let lastReportDoc = null;
-            let extractDebounceTimer = null;
-            let mainObserver = null;
-            let iframeObserver = null;
-            let timeoutTimer = null;
-            let loadHandler = null;
-            let subFrameRef = null;
-            let subFrameLoadHandler = null;
-            let lastFoundId = null;
-
-            const cleanup = () => {
-               if (mainObserver) mainObserver.disconnect();
-               if (iframeObserver) iframeObserver.disconnect();
-               if (timeoutTimer) clearTimeout(timeoutTimer);
-               if (window._emptyTimer) {
-                  clearTimeout(window._emptyTimer);
-                  window._emptyTimer = null;
-               }
-               if (extractDebounceTimer) {
-                  clearTimeout(extractDebounceTimer);
-                  extractDebounceTimer = null;
-               }
-               if (loadHandler) {
-                 document.body.removeEventListener('load', loadHandler, true);
-               }
-               if (subFrameRef && subFrameLoadHandler) {
-                 subFrameRef.removeEventListener('load', subFrameLoadHandler);
-               }
-            };
-
-            const finish = (result) => {
-               if (!isDone) {
-                  isDone = true;
-                  cleanup();
-                  resolve(result);
-               }
-            };
-
-            timeoutTimer = setTimeout(() => {
-               let fallbackHtml = '';
-               try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
-               if (reportSuccessfullyLoaded) {
-                  finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
-               } else {
-                  finish({ error: 'iframe_not_found_timeout', html: fallbackHtml || document.documentElement.outerHTML, foundId: lastFoundId });
-               }
-            }, tMs);
-
-            const isVisible = (el) => {
-              if (!el) return false;
-              const style = el.ownerDocument && el.ownerDocument.defaultView
-                ? el.ownerDocument.defaultView.getComputedStyle(el)
-                : null;
-              if (!style) return true;
-              return style.display !== 'none' && style.visibility !== 'hidden';
-            };
-
-            const getViewerLoadingState = () => {
-              try {
-                if (typeof $find !== 'function') return null;
-                const viewer = $find('rptViewer');
-                if (!viewer || typeof viewer.get_isLoading !== 'function') return null;
-                return viewer.get_isLoading();
-              } catch (e) {
-                return null;
-              }
-            };
-
-            const tryExtractDebounced = () => {
-               if (extractDebounceTimer) clearTimeout(extractDebounceTimer);
-               extractDebounceTimer = setTimeout(tryExtract, 100);
-            };
-
-            const tryExtract = () => {
-              if (isDone) return;
-              
-              if (window._emptyTimer) {
-                 clearTimeout(window._emptyTimer);
-                 window._emptyTimer = null;
-              }
-              
-              try {
-                const possibleIds = [
-                  'rptViewer_ReportFrame',
-                  'ReportFramerptViewer',
-                  'rptViewer_ctl00_ReportFrame'
-                ];
-                
-                let iframe = null;
-                let foundId = '';
-                
-                for (const id of possibleIds) {
-                  const el = document.getElementById(id);
-                  if (el) { iframe = el; foundId = id; break; }
-                }
-                
-                if (!iframe) {
-                  const allIframes = document.querySelectorAll('iframe, frame');
-                  for (const f of allIframes) {
-                    const src = f.src || f.getAttribute('src') || '';
-                    if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
-                      iframe = f;
-                      foundId = f.id || '(sem id)';
-                      break;
+        let iframeState = null;
+        const startTime = Date.now();
+        const markerKey = (currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val;
+        
+        while (!isCancelled()) {
+           if (win.isDestroyed()) { iframeState = { error: 'destroyed' }; break; }
+           if (Date.now() - startTime > timeoutMs) { iframeState = { error: 'iframe_not_found_timeout' }; break; }
+           
+           const extractResult = await win.webContents.executeJavaScript(`
+              (() => {
+                 try {
+                    const possibleIds = [
+                      'rptViewer_ReportFrame',
+                      'ReportFramerptViewer',
+                      'rptViewer_ctl00_ReportFrame'
+                    ];
+                    
+                    let iframe = null;
+                    let foundId = '';
+                    
+                    for (const id of possibleIds) {
+                      const el = document.getElementById(id);
+                      if (el) { iframe = el; foundId = id; break; }
                     }
-                  }
-                }
-                
-                if (foundId) lastFoundId = foundId;
-                
-                if (!iframe) return; 
-                
-                let doc = null;
-                try { doc = iframe.contentDocument; } catch(e) { }
-                if (!doc || !doc.body) return; 
-                const reportRootDoc = doc;
-
-                // SSRS pode ter um sub-frame "report" dentro do frameset principal
-                try {
-                  const subFrame = doc.getElementById('report');
-                  if (subFrame) {
-                     if (subFrameRef !== subFrame) {
-                        if (subFrameRef && subFrameLoadHandler) {
-                           subFrameRef.removeEventListener('load', subFrameLoadHandler);
+                    
+                    if (!iframe) {
+                      const allIframes = document.querySelectorAll('iframe, frame');
+                      for (const f of allIframes) {
+                        const src = f.src || f.getAttribute('src') || '';
+                        if (src.includes('ReportViewer') || src.includes('Reserved') || src.includes('PageViewer')) {
+                          iframe = f;
+                          foundId = f.id || '(sem id)';
+                          break;
                         }
-                        subFrameRef = subFrame;
-                        subFrameLoadHandler = tryExtract;
-                        subFrame.addEventListener('load', subFrameLoadHandler);
-                     }
-                     // Se existe o frame aninhado mas ele ainda não tem documento, aguarda!
-                     if (!subFrame.contentDocument || !subFrame.contentDocument.body) return;
-                     doc = subFrame.contentDocument;
-                  }
-                } catch(e) { }
+                      }
+                    }
+                    
+                    if (!iframe) return { status: 'waiting', msg: 'Iframe não encontrado.' };
+                    
+                    let doc = null;
+                    try { doc = iframe.contentDocument; } catch(e) { }
+                    if (!doc || !doc.body) return { status: 'waiting', msg: 'doc ou doc.body inacessível.' };
+                    
+                    try {
+                      const subFrame = doc.getElementById('report');
+                      if (subFrame && subFrame.contentDocument && subFrame.contentDocument.body) {
+                         doc = subFrame.contentDocument;
+                      }
+                    } catch(e) { }
+                    
+                    const scrapedVal = doc.body.getAttribute('data-scraped-turma');
+                    if (scrapedVal === "${markerKey}") return { status: 'waiting', msg: 'Turma já extraída no DOM (marker matched).' };
 
-                // Agora doc aponta para o documento final (nested ou outer)
-                lastReportDoc = doc;
-                
-                // Checa a marcação: se já foi scraped para ESTE semestre+turma, ignora
-                const markerKey = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
-                const scrapedVal = doc.body.getAttribute('data-scraped-turma');
-                if (scrapedVal === markerKey) return;
+                    if (doc.readyState !== 'complete') return { status: 'waiting', msg: 'readyState não é complete.' };
 
-                if (!iframeObserver || iframeObserver.doc !== doc) {
-                   if (iframeObserver) iframeObserver.disconnect();
-                   iframeObserver = new MutationObserver(tryExtractDebounced);
-                   iframeObserver.doc = doc;
-                   iframeObserver.observe(doc.body, { childList: true, subtree: true, attributes: true });
-                }
+                    try {
+                       if (typeof $find === 'function') {
+                          const viewer = $find('rptViewer');
+                          if (viewer && typeof viewer.get_isLoading === 'function' && viewer.get_isLoading()) {
+                             return { status: 'waiting', msg: 'viewer.get_isLoading() é true.' };
+                          }
+                       }
+                    } catch(e) {}
+                    
+                    const isVisible = (el) => {
+                      if (!el) return false;
+                      const style = el.ownerDocument && el.ownerDocument.defaultView ? el.ownerDocument.defaultView.getComputedStyle(el) : null;
+                      if (!style) return true;
+                      return style.display !== 'none' && style.visibility !== 'hidden';
+                    };
+                    
+                    const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
+                    if (isVisible(waitPanel)) return { status: 'waiting', msg: 'waitPanel está visível.' };
 
-                // Verifica indicadores de carregamento SSRS antes de processar qualquer coisa
-                if (doc.readyState !== 'complete') return;
+                    const allTables = Array.from(doc.querySelectorAll('table'));
+                    if (allTables.length === 0) return { status: 'waiting', msg: 'Nenhuma tabela encontrada no doc.' };
+                    
+                    const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
+                    if (newTables.length === 0) return { status: 'waiting', msg: 'Todas as tabelas são velhas (data-old-report).' };
 
-                const viewerLoadingState = getViewerLoadingState();
-                if (viewerLoadingState === true) return;
-                
-                // Sinal explícito do SSRS de carregamento: AsyncWait
-                const waitPanel = doc.getElementById('AsyncWait_Wait') || doc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(waitPanel)) return;
-
-                const outerWaitPanel = reportRootDoc.getElementById('AsyncWait_Wait') || reportRootDoc.querySelector('[id$="_AsyncWait_Wait"], div[id*="AsyncWait"]');
-                if (isVisible(outerWaitPanel)) return;
-
-                // Apenas processa se houver uma nova tabela que o AJAX acabou de criar (ou se for um doc novo inteiro)
-                const allTables = Array.from(doc.querySelectorAll('table'));
-                if (allTables.length === 0) return; // Nenhuma tabela ainda (SSRS sempre gera tabelas, se está vazio, está carregando)
-                
-                const newTables = allTables.filter(t => !t.hasAttribute('data-old-report'));
-                if (newTables.length === 0) return; // O UpdatePanel ainda não substituiu o DOM antigo!
-
-                // Se passou por todas as gates de carregamento, o relatório carregou!
-                reportSuccessfullyLoaded = true;
-
-                const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
-                const uniqueTrs = Array.from(new Set(rawTrs));
-                const trs = uniqueTrs.filter(tr => {
-                  const tds = tr.querySelectorAll('td');
-                  if (tds.length < 4) return false;
-                  return /^\\d{10,}$/.test(tds[0].innerText.trim());
-                });
-                
-                if (trs.length === 0) {
-                   window._emptyTimer = setTimeout(() => {
-                      window._emptyTimer = null;
-                      let fallbackHtml = '';
-                      try { if (lastReportDoc) fallbackHtml = lastReportDoc.documentElement.outerHTML; } catch(e) {}
-                      finish({ error: 'table_not_found', html: fallbackHtml || document.documentElement.outerHTML, foundId });
-                   }, 2000); // 2 segundos curtos de tolerância, reiniciados a cada mutação
-                   return; 
-                }
-                
-                const markerKey2 = ${JSON.stringify((currentSemestre ? currentSemestre.val + ':' : '') + currentTurma.val)};
-                doc.body.setAttribute('data-scraped-turma', markerKey2);
-                
-                const alunos = [];
-                trs.forEach(tr => {
-                  const tds = tr.querySelectorAll('td');
-                  const matricula = tds[0].innerText.trim();
-                  const nome = tds[1].innerText.trim();
-                  if (nome && matricula) {
-                    alunos.push({ nome, matricula, turma_nome: ${JSON.stringify(currentTurma.text)} });
-                  }
-                });
-                
-                finish({ error: null, alunos, foundId: foundId });
-              } catch (e) {
-                 // Ignore errors during check, as DOM might be in flux
+                    const rawTrs = newTables.flatMap(t => Array.from(t.querySelectorAll('tr')));
+                    const uniqueTrs = Array.from(new Set(rawTrs));
+                    const trs = uniqueTrs.filter(tr => {
+                      const tds = tr.querySelectorAll('td');
+                      if (tds.length < 4) return false;
+                      return /^\\d{10,}$/.test(tds[0].innerText.trim());
+                    });
+                    
+                    if (trs.length === 0) {
+                       return { status: 'empty', foundId };
+                    }
+                    
+                    doc.body.setAttribute('data-scraped-turma', "${markerKey}");
+                    
+                    const alunos = [];
+                    trs.forEach(tr => {
+                      const tds = tr.querySelectorAll('td');
+                      const matricula = tds[0].innerText.trim();
+                      const nome = tds[1].innerText.trim();
+                      if (nome && matricula) {
+                        alunos.push({ nome, matricula, turma_nome: "${currentTurma.text}" });
+                      }
+                    });
+                    
+                    return { status: 'success', alunos, foundId };
+                 } catch (e) {
+                    return { status: 'waiting', msg: 'Erro: ' + e.message };
+                 }
+              })()
+           `).catch(e => ({ status: 'waiting', msg: 'ExecuteScript Error: ' + e.message }));
+           
+           if (extractResult && extractResult.status === 'success') {
+              iframeState = { error: null, alunos: extractResult.alunos, foundId: extractResult.foundId };
+              break;
+           } else if (extractResult && extractResult.status === 'empty') {
+              // Wait 2 extra seconds to see if it's just rendering
+              await delay(2000);
+              const recheck = await win.webContents.executeJavaScript(`
+                 (() => {
+                    try {
+                       const doc = document.getElementById('${extractResult.foundId}').contentDocument;
+                       const allTables = Array.from(doc.querySelectorAll('table')).filter(t => !t.hasAttribute('data-old-report'));
+                       const trs = allTables.flatMap(t => Array.from(t.querySelectorAll('tr'))).filter(tr => {
+                         const tds = tr.querySelectorAll('td');
+                         return tds.length >= 4 && /^\\d{10,}$/.test(tds[0].innerText.trim());
+                       });
+                       if (trs.length > 0) {
+                          doc.body.setAttribute('data-scraped-turma', "${markerKey}");
+                          const alunos = [];
+                          trs.forEach(tr => {
+                            const tds = tr.querySelectorAll('td');
+                            const matricula = tds[0].innerText.trim();
+                            const nome = tds[1].innerText.trim();
+                            if (nome && matricula) alunos.push({ nome, matricula, turma_nome: "${currentTurma.text}" });
+                          });
+                          return { status: 'success', alunos, foundId: '${extractResult.foundId}' };
+                       }
+                    } catch(e) {}
+                    return { status: 'empty' };
+                 })()
+              `).catch(() => ({ status: 'empty' }));
+              
+              if (recheck && recheck.status === 'success') {
+                 iframeState = { error: null, alunos: recheck.alunos, foundId: recheck.foundId };
+              } else {
+                 iframeState = { error: 'table_not_found', html: '', foundId: extractResult.foundId };
               }
-            };
-
-            mainObserver = new MutationObserver(tryExtractDebounced);
-            mainObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-            loadHandler = (e) => {
-               if (e.target && (e.target.tagName === 'IFRAME' || e.target.tagName === 'FRAME')) {
-                  tryExtract();
-               }
-            };
-            document.body.addEventListener('load', loadHandler, true);
-
-            tryExtract();
-          })
-        `);
-
-        let isRaceDone = false;
-        const cancelPoll = async () => {
-          while (!isCancelled() && !isRaceDone) { await delay(500); }
-          return { error: 'cancelled' };
-        };
-
-        let iframeState;
-        try {
-           iframeState = await Promise.race([ iframePromise, cancelPoll() ]);
-        } finally {
-           isRaceDone = true;
+              break;
+           }
+           
+           if (extractResult && extractResult.msg) {
+              console.log('[Scraper-DOM] ' + extractResult.msg);
+           }
+           
+           await delay(1000);
+        }
+        
+        if (isCancelled()) {
+           iframeState = { error: 'cancelled' };
         }
 
         if (iframeState.error === 'table_not_found') {
@@ -873,6 +739,14 @@ async function iniciarScraping(cookies) {
       if (logId) atualizarLogScraping(logId, { status: 'cancelado', mensagem: error.message });
     } else {
       console.error('[Scraper] Erro catastrófico durante o scraping:', error);
+      try {
+         if (win && win.webContents) {
+            const dumpHtml = await win.webContents.executeJavaScript(`document.documentElement.outerHTML`);
+            const dumpPath = require('path').join(require('electron').app.getPath('userData'), 'data', 'error_dump.html');
+            require('fs').writeFileSync(dumpPath, dumpHtml, 'utf-8');
+            console.error('[Scraper] HTML da página de erro salvo em:', dumpPath);
+         }
+      } catch(e) { console.error('Erro ao salvar dump HTML:', e); }
       if (logId) {
         atualizarLogScraping(logId, { 
           status: 'erro', 
