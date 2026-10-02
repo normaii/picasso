@@ -4,6 +4,18 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.10](https://github.com/normaii/picasso/compare/v0.1.0-dev.9...v0.1.0-dev.10) (2026-10-02)
+
+### 🐛 Correções
+
+* **scraper:** replace SSRS injected promises with resilient Node polling ([c4774ba](https://github.com/normaii/picasso/commit/c4774ba51876b3b97500ab43b5959042e0cd3fe7))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.9](https://github.com/normaii/picasso/compare/v0.1.0-dev.8...v0.1.0-dev.9) (2026-09-25)
 
 ### 🐛 Correções
