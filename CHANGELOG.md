@@ -4,6 +4,18 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.11](https://github.com/normaii/picasso/compare/v0.1.0-dev.10...v0.1.0-dev.11) (2026-10-02)
+
+### 🐛 Correções
+
+* **PIC-106:** gerar timestamp local no arquivamento ([861a6a9](https://github.com/normaii/picasso/commit/861a6a9f8d50b486e5885ce85f36776374c59560))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.10](https://github.com/normaii/picasso/compare/v0.1.0-dev.9...v0.1.0-dev.10) (2026-10-02)
 
 ### 🐛 Correções
