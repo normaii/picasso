@@ -8,7 +8,7 @@ O requisito original (ADR-013) estabelecia a necessidade de exclusão total (*ha
 
 ## Decisão
 Foi decidido adotar uma estratégia mista de retenção (Soft-Delete e Hard-Delete):
-1. **Soft-Delete de Dados e PDFs:** Ao iniciar o expurgo, o banco JSON e todos os PDFs gerados serão movidos (arquivados) para pastas de backup (`$DATA_DIR/archive_db/` e `$DATA_DIR/pdfs/archive_pdfs/`) agrupados por um *timestamp*.
+1. **Soft-Delete de Dados e PDFs:** Ao iniciar o expurgo, o banco JSON e todos os PDFs gerados serão movidos (arquivados) para pastas de backup (`$DATA_DIR/archive_db/` e `$DATA_DIR/pdfs/archive_pdfs/`) agrupados por um *timestamp* no horário local, incluindo o deslocamento numérico do fuso (`±HHMM`).
 2. **Preservação de Configuração Global:** O banco de dados de produção (`picasso_db.json`) será recriado zerado (IDs resetados, arrays vazios), mas o objeto global de `configuracoes` (Nome da Escola e Logo) será herdado da base anterior.
 3. **Hard-Delete de Fotos:** Todo o diretório `$DATA_DIR/fotos/` será deletado fisicamente e de forma irreversível.
 4. **Interface:** O processo será disparado por um botão "Encerramento de Ciclo Letivo" nas Configurações, com modal de dupla confirmação.
@@ -43,4 +43,3 @@ Os seguintes pontos foram identificados durante o Code Review mas **deliberadame
 ## Consequências
 - **Positivas:** Permite que a escola tenha backups das turmas passadas e dos PDFs, garantindo rastreabilidade, enquanto remove permanentemente as fotos para adequação à LGPD. Sistema resiliente a falhas de energia e crashes do SO.
 - **Negativas:** Requer um mínimo de gestão de disco ao longo de múltiplos anos, já que PDFs e pequenos JSONs se acumularão, embora o custo de armazenamento seja irrisório comparado às imagens originais.
-
