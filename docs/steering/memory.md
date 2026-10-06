@@ -86,8 +86,9 @@ O portal SEEDUC possui CAPTCHA, impossibilitando login automático. O diretor fa
 Extrai nomes, matrículas e turmas do relatório `RelAlunosMatPTurma` do SEEDUC.
 
 - **Comportamento atual**: Itera por **todos os semestres** disponíveis no dropdown, extrai turmas de cada semestre, e para cada turma extrai os alunos. Dados são persistidos no JSON DB.
-- **Scraper Reativo (PIC-13)**: A lógica de paginação e extração utiliza `MutationObservers` cacheados (com debouncing para evitar 100% de CPU spike do Chromium), injeções de eventos no barramento `Sys.WebForms.PageRequestManager` do ASP.NET (para reagir perfeitamente à latência de rede no preenchimento de dropdowns), mitigações de Stale Data nos filtros em cascata e listeners nativos do Electron (`did-finish-load`) para tolerar as quebras completas de DOM (Full Postbacks) geradas pelo SSRS.
-- **Ref**: [ADR-007](ADR/ADR-ALPHA-BASELINE.md#adr-007), [PIC-13](ADR/PIC-13.md)
+- **Scraper Reativo (PIC-13 / PIC-107)**: A lógica de paginação e extração utiliza polling reativo via Node.js a cada 1 segundo (tolerante a Full Postbacks do SSRS), injeções de eventos no barramento `Sys.WebForms.PageRequestManager` do ASP.NET e mitigações de Stale Data nos filtros em cascata.
+- **Visibilidade da Janela do Scraper (PIC-114)**: A janela BrowserWindow auxiliar opera como invisível (`show: false`) e sem DevTools em produção, tornando-se visível (`show: true`) e com DevTools aberto exclusivamente em ambiente de desenvolvimento (`process.env.NODE_ENV === 'development'`).
+- **Ref**: [ADR-007](ADR/ADR-ALPHA-BASELINE.md#adr-007), [PIC-13](ADR/PIC-13.md), [PIC-107](ADR/PIC-107.md), [PIC-114](ADR/PIC-114.md)
 
 ### 3.3 Módulo CdF (Captura de Fotos)
 
@@ -330,6 +331,7 @@ flowchart TD
 | PIC-28| Mitigação de XSS e Validação | ✅ Aceito | [PIC-28.md](ADR/PIC-28.md) |
 | PIC-3 | Arquivamento de Dados (LGPD) | ✅ Aceito | [PIC-3.md](ADR/PIC-3.md) |
 | PIC-107| Restauração da Espera Reativa (Anti-Hang SSRS) | ✅ Aceito | [PIC-107.md](ADR/PIC-107.md) |
+| PIC-114| Visibilidade Condicional da Janela do Scraper | ✅ Aceito | [PIC-114.md](ADR/PIC-114.md) |
 
 ### Backlog de decisões futuras
 
@@ -352,6 +354,7 @@ Todas as decisões da fase Alpha (ADR-001 a ADR-020) estão documentadas no [ADR
 
 | Data | Alteração |
 |------|-----------|
+| 2026-10-06 | PIC-114: Visibilidade da BrowserWindow do Scraper e DevTools tornada condicional ao ambiente de desenvolvimento (`process.env.NODE_ENV === 'development'`). Em produção, a janela opera 100% invisível (`show: false`). |
 | 2026-09-29 | PIC-107: Resolvido travamento silencioso (hang) causado por Full Postback do SSRS ao clicar em "View Report", que gerava Promessas órfãs. A injeção de \`Promise\` no Chromium foi totalmente substituída por um polling reativo puro rodando isolado no Node.js. |
 | 2026-09-25 | PIC-13 Finalizado: ADR atualizado com a arquitetura completa de Reatividade e mitigação de Stale Data nos Dropdowns. Seção 3.2 atualizada. |
 | 2026-09-25 | PIC-3 V10: saveDb() Windows-safe (fallback copy+unlink), guard isArchiving na rota real `/api/pdf/gerar`, rmSync falha retorna success:false, ADR e Memory atualizados. |
