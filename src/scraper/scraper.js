@@ -118,16 +118,20 @@ async function iniciarScraping(cookies) {
 
   try {
     logId = criarLogScraping();
-    log('Iniciando scraping com BrowserWindow invisível...');
+    const isDev = process.env.NODE_ENV === 'development';
+    log(`Iniciando scraping com BrowserWindow ${isDev ? 'visível (modo desenvolvimento)' : 'invisível'}...`);
     
     win = new BrowserWindow({
-      show: true,
+      show: isDev,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: false
       }
     });
-    win.webContents.openDevTools();
+
+    if (isDev) {
+      win.webContents.openDevTools();
+    }
 
     // ==================================================
     // PATCH SSRS INFINITE LOOP
