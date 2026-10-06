@@ -4,6 +4,18 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-dev.12](https://github.com/normaii/picasso/compare/v0.1.0-dev.11...v0.1.0-dev.12) (2026-10-06)
+
+### ✨ Funcionalidades
+
+* **scraper:** tornar visibilidade da janela condicional ao NODE_ENV (PIC-114) ([c94fb89](https://github.com/normaii/picasso/commit/c94fb894438e644c0577722fbf64582f202b5648))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-dev.11](https://github.com/normaii/picasso/compare/v0.1.0-dev.10...v0.1.0-dev.11) (2026-10-02)
 
 ### 🐛 Correções
