@@ -116,18 +116,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputEscolaNome = document.getElementById('escola-nome');
   const inputEscolaLogo = document.getElementById('escola-logo');
 
-  const storedNome = localStorage.getItem('escolaNome');
-  const storedLogo = localStorage.getItem('escolaLogo');
-  
-  if (inputEscolaNome && storedNome) inputEscolaNome.value = storedNome;
-  if (inputEscolaLogo && storedLogo) inputEscolaLogo.value = storedLogo;
+  async function carregarConfiguracoes() {
+    try {
+      const res = await fetch('http://localhost:3000/api/config');
+      if (res.ok) {
+        const config = await res.json();
+        if (inputEscolaNome && config.escolaNome) inputEscolaNome.value = config.escolaNome;
+        if (inputEscolaLogo && config.escolaLogo) inputEscolaLogo.value = config.escolaLogo;
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar configurações da API:', e);
+    }
+  }
 
   if (formConfig) {
-    formConfig.addEventListener('submit', (e) => {
+    formConfig.addEventListener('submit', async (e) => {
       e.preventDefault();
-      localStorage.setItem('escolaNome', inputEscolaNome.value);
-      localStorage.setItem('escolaLogo', inputEscolaLogo.value);
-      alert('Configurações salvas com sucesso!');
+      
+      const novasConfigs = {
+        escolaNome: inputEscolaNome.value,
+        escolaLogo: inputEscolaLogo.value
+      };
+
+      try {
+        const res = await fetch('http://localhost:3000/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(novasConfigs)
+        });
+        
+        if (res.ok) {
+          alert('Configurações salvas com sucesso!');
+        } else {
+          const errData = await res.json();
+          alert(errData.erro || 'Erro ao salvar as configurações.');
+        }
+      } catch (err) {
+        alert('Erro de comunicação ao salvar configurações.');
+      }
     });
   }
 
@@ -794,9 +820,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function iniciarGeracaoPDF(turma) {
-    const nome = localStorage.getItem('escolaNome') || 'Escola Padrão';
-    const logo = localStorage.getItem('escolaLogo') || '';
-
     if (bannerStatus) bannerStatus.style.display = 'flex';
     if (alertBanner) alertBanner.style.display = 'none';
     if (textStatus) textStatus.innerText = `Gerando PDF para a turma ${turma}...`;
@@ -805,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('http://localhost:3000/api/pdf/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turma, escolaNome: nome, logoUrl: logo })
+        body: JSON.stringify({ turma })
       });
       
       if (res.ok) {
@@ -848,9 +871,82 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
+  // Encerramento de Ciclo Letivo (PIC-3)
+  // ==========================================
+  const btnPurgeData = document.getElementById('btn-purge-data');
+  const modalPurge = document.getElementById('modal-purge');
+  const btnPurgeCancel = document.getElementById('btn-purge-cancel');
+  const btnPurgeConfirm = document.getElementById('btn-purge-confirm');
+  const inputPurgeConfirm = document.getElementById('input-purge-confirm');
+
+  if (btnPurgeData && modalPurge) {
+    btnPurgeData.addEventListener('click', () => {
+      inputPurgeConfirm.value = '';
+      btnPurgeConfirm.disabled = true;
+      modalPurge.style.display = 'flex';
+      setTimeout(() => inputPurgeConfirm.focus(), 100);
+    });
+
+    btnPurgeCancel.addEventListener('click', () => {
+      modalPurge.style.display = 'none';
+    });
+
+    inputPurgeConfirm.addEventListener('input', (e) => {
+      if (e.target.value.trim().toUpperCase() === 'ENCERRAR') {
+        btnPurgeConfirm.disabled = false;
+      } else {
+        btnPurgeConfirm.disabled = true;
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalPurge.style.display === 'flex') {
+        modalPurge.style.display = 'none';
+      }
+    });
+
+    btnPurgeConfirm.addEventListener('click', async () => {
+      try {
+        btnPurgeConfirm.disabled = true;
+        btnPurgeConfirm.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Processando...';
+        
+        const res = await fetch('/api/system/archive', { 
+          method: 'POST',
+          headers: {
+            'x-admin-key': 'picasso-local-beta-key'
+          }
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          modalPurge.style.display = 'none';
+          if (data.avisos && data.avisos.length > 0) {
+            alert('Atenção: ' + data.avisos.join('\n'));
+          } else {
+            alert('Encerramento de ciclo letivo concluído com sucesso!');
+          }
+          carregarDadosAdd();
+          carregarDadosCdf();
+          atualizarStatusHome();
+        } else {
+          alert('Erro no expurgo: ' + (data.erro || 'Falha desconhecida.'));
+        }
+      } catch (err) {
+        alert('Erro ao contatar API de arquivamento.');
+      } finally {
+        btnPurgeConfirm.innerHTML = '<i class="ph ph-trash"></i> Confirmar Expurgo';
+        if (inputPurgeConfirm.value.trim().toUpperCase() === 'ENCERRAR') {
+          btnPurgeConfirm.disabled = false;
+        }
+      }
+    });
+  }
+
+  // ==========================================
   // Inicialização no Carregamento
   // ==========================================
   atualizarStatusHome();
   carregarDadosAdd();
   carregarDadosCdf();
+  carregarConfiguracoes();
 });

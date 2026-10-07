@@ -18,6 +18,10 @@ const {
   getUltimoLogScraping,
   getEstatisticasFotos,
   getUltimaEstimativaSincronizacao,
+  getConfiguracoes,
+  salvarConfiguracoes,
+  archiveAndPurge,
+  getIsArchiving,
 } = require('../db/database');
 
 const {
@@ -25,6 +29,8 @@ const {
   requestCancelPhotos,
   getPhotoFetchStatus,
 } = require('../scraper/photoFetcher');
+
+const { escapeHtml, validateLogoUrl } = require('../utils/security');
 
 // ============================================================
 // Alunos
@@ -90,6 +96,123 @@ router.get('/turmas', (req, res) => {
 });
 
 // ============================================================
+// Configurações Globais
+// ============================================================
+
+/**
+ * GET /api/config
+ * Retorna as configurações globais da aplicação.
+ */
+router.get('/config', (req, res) => {
+  try {
+    const config = getConfiguracoes();
+    res.json(config);
+  } catch (error) {
+    console.error('[API] Erro ao buscar configurações:', error.message);
+    res.status(500).json({ erro: 'Erro ao buscar configurações.' });
+  }
+});
+
+/**
+ * POST /api/config
+ * Atualiza as configurações globais da aplicação.
+ */
+router.post('/config', (req, res) => {
+  try {
+    let { escolaNome, escolaLogo } = req.body || {};
+
+    // Validação estrita de tipo e preenchimento para escolaNome
+    if (typeof escolaNome !== 'string') {
+      return res.status(400).json({ erro: 'O nome da escola deve ser um texto válido.' });
+    }
+    escolaNome = escolaNome.trim();
+    if (!escolaNome) {
+      return res.status(400).json({ erro: 'O nome da escola é obrigatório e não pode ser vazio.' });
+    }
+
+    // Validação estrita de tipo e formato para escolaLogo
+    if (escolaLogo !== undefined && typeof escolaLogo !== 'string') {
+      return res.status(400).json({ erro: 'A logo da escola deve ser um texto válido.' });
+    }
+    if (!validateLogoUrl(escolaLogo)) {
+      return res.status(400).json({ erro: 'A URL da logo informada não é segura ou possui um formato inválido.' });
+    }
+
+    // Persistência sem dupla sanitização (Escape ocorre no pdfGenerator.js no momento do output)
+    const novasConfiguracoes = {
+      escolaNome: escolaNome,
+      escolaLogo: escolaLogo ? escolaLogo.trim() : ''
+    };
+
+    const atualizadas = salvarConfiguracoes(novasConfiguracoes);
+    res.json({ mensagem: 'Configurações salvas com sucesso.', configuracoes: atualizadas });
+  } catch (error) {
+    console.error('[API] Erro ao salvar configurações:', error.message);
+    res.status(500).json({ erro: 'Erro ao salvar configurações.' });
+  }
+});
+
+// ============================================================
+// Encerramento de Ciclo Letivo (PIC-3)
+// ============================================================
+
+const {
+  iniciarScraping,
+  requestCancel,
+  getIsScrapingRunning,
+} = require('../scraper/scraper');
+
+/**
+ * POST /api/system/archive
+ * Executa o Soft-Delete de Banco e PDFs e o Hard-Delete de Fotos.
+ */
+router.post('/system/archive', (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  const expectedKey = process.env.ADMIN_SECRET || 'picasso-local-beta-key';
+  
+  if (adminKey !== expectedKey) {
+    return res.status(401).json({ erro: 'Não autorizado. Apenas o administrador do sistema pode realizar esta operação.' });
+  }
+
+  try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'O arquivamento já está em andamento.' });
+    }
+
+    const photoStatus = getPhotoFetchStatus();
+    
+    const isScrapingActive = getIsScrapingRunning();
+    
+    const photoTerminalStates = ['ocioso', 'concluido', 'erro', 'cancelado'];
+    const isPhotosActive = photoStatus && !photoTerminalStates.includes(photoStatus.status);
+    
+    const isPdfActive = typeof pdfStatus !== 'undefined' && pdfStatus.status === 'processando';
+
+    if (isScrapingActive || isPhotosActive || isPdfActive) {
+      return res.status(409).json({ erro: 'Não é possível arquivar enquanto há processos de sincronização, download ou geração de PDF em andamento. Aguarde a conclusão.' });
+    }
+
+    const result = archiveAndPurge();
+    if (!result.success) {
+      return res.status(500).json({ erro: result.erro || 'Falha ao concluir o encerramento do ciclo.' });
+    }
+    
+    if (result.warnings && result.warnings.length > 0) {
+      res.json({ 
+        mensagem: 'Encerramento de ciclo letivo concluído com alertas.', 
+        detalhes: result,
+        avisos: result.warnings 
+      });
+    } else {
+      res.json({ mensagem: 'Encerramento de ciclo letivo concluído com sucesso.', detalhes: result });
+    }
+  } catch (error) {
+    console.error('[API] Erro ao arquivar dados:', error);
+    res.status(500).json({ erro: 'Erro interno ao realizar o expurgo de dados.' });
+  }
+});
+
+// ============================================================
 // Geração de PDF
 // ============================================================
 
@@ -100,6 +223,10 @@ router.get('/turmas', (req, res) => {
  */
 router.post('/gerar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
+    }
+
     const { ids } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -130,8 +257,6 @@ router.post('/gerar', async (req, res) => {
 // Scraping
 // ============================================================
 
-const { iniciarScraping, requestCancel } = require('../scraper/scraper');
-
 /**
  * POST /api/scraping/iniciar
  * Inicia uma operação de scraping.
@@ -143,6 +268,14 @@ router.post('/scraping/iniciar', async (req, res) => {
 
     if (!cookies || !Array.isArray(cookies)) {
       return res.status(400).json({ erro: 'Cookies de sessão não fornecidos.' });
+    }
+
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar scraping durante o encerramento do ciclo letivo.' });
+    }
+
+    if (getIsScrapingRunning()) {
+      return res.status(409).json({ erro: 'Já existe um scraping em andamento.' });
     }
 
     // Inicia de forma assíncrona para não bloquear a requisição
@@ -208,6 +341,10 @@ router.get('/sincronizacao/estimativa', (req, res) => {
  */
 router.post('/fotos/iniciar', async (req, res) => {
   try {
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível iniciar o download de fotos durante o encerramento do ciclo letivo.' });
+    }
+
     const { turma, concurrency, cookies, forcar } = req.body || {};
 
     // Dispara em background
@@ -323,10 +460,18 @@ let pdfStatus = { status: 'ocioso', ultimaTurma: null, arquivo: null, erro: null
  */
 router.post('/pdf/gerar', async (req, res) => {
   try {
-    const { turma, escolaNome, logoUrl } = req.body;
-    if (!turma || !escolaNome) {
-      return res.status(400).json({ erro: 'Turma e Nome da Escola são obrigatórios.' });
+    if (getIsArchiving && getIsArchiving()) {
+      return res.status(409).json({ erro: 'Não é possível gerar PDFs durante o encerramento do ciclo letivo.' });
     }
+
+    const { turma } = req.body;
+    if (!turma) {
+      return res.status(400).json({ erro: 'O nome da turma é obrigatório.' });
+    }
+
+    const config = getConfiguracoes();
+    const escolaNome = config.escolaNome || 'ESCOLA ESTADUAL';
+    const logoUrl = config.escolaLogo || '';
 
     pdfStatus = { status: 'processando', ultimaTurma: turma, arquivo: null, erro: null };
 
