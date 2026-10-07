@@ -4,6 +4,18 @@ Todas as mudanças notáveis do projeto são documentadas neste arquivo.
 Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
 
 
+## [0.1.0-rc.5](https://github.com/normaii/picasso/compare/v0.1.0-rc.4...v0.1.0-rc.5) (2026-10-07)
+
+### ✨ Funcionalidades
+
+* **ci:** adicionar workflow_dispatch no uat-release e ajustar guard ([e0190ad](https://github.com/normaii/picasso/commit/e0190adcb3340573e0f3eeee8685cf2afb9acb83))
+
+# Changelog — Picasso
+
+Todas as mudanças notáveis do projeto são documentadas neste arquivo.
+Formato baseado em [Conventional Commits](https://www.conventionalcommits.org/).
+
+
 ## [0.1.0-rc.3](https://github.com/normaii/picasso/compare/v0.1.0-rc.2...v0.1.0-rc.3) (2026-10-07)
 
 ### ✨ Funcionalidades
