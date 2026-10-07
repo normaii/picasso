@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release
+  workflow_dispatch:
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -16,7 +17,7 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    if: "github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore(release):')"
 
     steps:
       - name: Checkout Code
