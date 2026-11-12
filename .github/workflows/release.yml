@@ -1,29 +1,29 @@
-name: Release Pipeline
+name: Production Release
 
 on:
   push:
     branches:
       - master
-    tags:
-      - 'v*'
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: windows-latest
-    # Evita que a própria action crie um loop infinito ou duplique coisas se empurrar pra master
-    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
-    
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Configure Git
         run: |
@@ -36,16 +36,52 @@ jobs:
           node-version: 24
           cache: 'npm'
 
-      - name: Auto-Bump Version (Only on Master branch)
-        if: github.ref == 'refs/heads/master'
-        run: |
-          npm version patch -m "chore: bump version to %s [skip ci]"
-          git push origin master --follow-tags
-
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build and Publish Release
-        run: npm run build -- --publish always
+      - name: Semantic Release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Build and Publish Electron
+        if: steps.semantic.outcome == 'success'
+        run: npm run build -- --publish always --config.publish.releaseType=release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  merge-back:
+    needs: release
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge-back master → develop
+        run: |
+          git fetch origin develop master
+          git checkout develop
+          git merge origin/master --no-edit || {
+            echo "::warning::Merge-back falhou — conflito detectado. Criando PR de merge-back."
+            git merge --abort
+            gh pr create \
+              --base develop \
+              --head master \
+              --title "chore: merge-back master → develop (conflito)" \
+              --body "⚠️ Merge-back automático falhou por conflito. Resolva manualmente." \
+              --label "chore"
+            exit 0
+          }
+          git push origin develop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

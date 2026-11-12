@@ -2,15 +2,47 @@ name: CI
 
 on:
   pull_request:
-    branches: [ "master", "develop" ]
-  push:
-    branches: [ "develop" ]
+    branches: [ "master", "develop", "release" ]
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
+  validate-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR source branch
+        run: |
+          HEAD="${{ github.head_ref }}"
+          BASE="${{ github.base_ref }}"
+          echo "PR: $HEAD → $BASE"
+
+          ALLOWED=false
+
+          if [[ "$BASE" == "develop" ]]; then
+            if [[ "$HEAD" == feature/* ]] || [[ "$HEAD" == hotfix/* ]]; then
+              ALLOWED=true
+            fi
+          elif [[ "$BASE" == "release" ]]; then
+            if [[ "$HEAD" == "develop" ]] || [[ "$HEAD" == hotfix/* ]]; then
+              ALLOWED=true
+            fi
+          elif [[ "$BASE" == "master" ]]; then
+            if [[ "$HEAD" == "release" ]] || [[ "$HEAD" == hotfix/* ]]; then
+              ALLOWED=true
+            fi
+          fi
+
+          if [[ "$ALLOWED" != "true" ]]; then
+            echo "::error::Branch '$HEAD' não pode abrir PR para '$BASE'."
+            echo "Regras: develop ← feature/*/hotfix/* | release ← develop/hotfix/* | master ← release/hotfix/*"
+            exit 1
+          fi
+
+          echo "✅ Branch de origem válida: $HEAD → $BASE"
+
   build:
+    needs: validate-branch
     runs-on: windows-latest
 
     steps:
@@ -29,5 +61,4 @@ jobs:
     - name: Test Build
       run: npm run build -- --publish never
       env:
-        # Garante que não tente publicar mesmo se GH_TOKEN estiver presente
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
